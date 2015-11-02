@@ -7,4 +7,4 @@ dflags "donotoptimizeaway.o"
 lflags "donotoptimizeaway.o"
 targetType "library"
 license "boost"
-
+description "Randomized benchmark and unittesting module"
