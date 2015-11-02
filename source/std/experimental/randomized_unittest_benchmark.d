@@ -5,7 +5,7 @@ unittest are a possible approach.
 Additionally, they lend itself for reproducible benchmarking and performance
 monitoring.
 */
-module std.internal.test.randomized_unittest_benchmark;
+module std.experimental.randomized_unittest_benchmark;
 
 import core.time : Duration, seconds;
 import std.meta : staticMap;
