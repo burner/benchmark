@@ -1,4 +1,4 @@
-main: main.d
+main: main.d libstd_benchmark.a
 	#dmd main.d libstd_benchmark.a -ofmain -Isource libdonotoptimizeaway.a
 	dmd main.d libstd_benchmark.a -ofmain -Isource
 	./main

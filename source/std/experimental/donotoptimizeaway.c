@@ -1,4 +1,4 @@
-void doNotOptimizeAway(void* p) 
+void doNotOptimizeAwayImpl(void* p) 
 {
 	asm volatile("" : : "g"(p) : "memory");
 }

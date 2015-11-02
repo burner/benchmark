@@ -3,7 +3,7 @@ import std.experimental.randomized_unittest_benchmark;
 
 void fun(int a, float b) {
 	logf("%s %s", a, b);
-	doNotOptimizeAway(&a);
+	doNotOptimizeAway(a,b);
 }
 
 void main(string[] args)
