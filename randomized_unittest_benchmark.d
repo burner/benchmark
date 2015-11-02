@@ -469,22 +469,10 @@ unittest
 	benchmark!funToBenchmark(2.seconds);
 }
 
-void benchmark(alias T)() {
-	benchmark!(T)(fullyQualifiedName!T, 1.seconds, 1337);
-}
-
-void benchmark(alias T)(Duration maxRuntime) {
-	benchmark!(T)(fullyQualifiedName!T, maxRuntime, 1337);
-}
-
-void benchmark(alias T)(string name) {
-	benchmark!(T)(name, 1.seconds, 1337);
-}
-
-void benchmark(alias T)(string name, Duration maxRuntime) {
-	benchmark!(T)(name, maxRuntime, 1337);
-}
-
+/** This function runs the passes $(D T) for the duration of $(D maxRuntime).
+It will count how often $(D T) is run in the duration and how long each run
+took to complete.
+*/
 void benchmark(alias T)(string name, Duration maxRuntime, int rndSeed) {
 	auto bench = Benchmark(name, 1000);
     auto rnd = Random(rndSeed);
@@ -504,9 +492,50 @@ void benchmark(alias T)(string name, Duration maxRuntime, int rndSeed) {
 	}
 }
 
+void benchmark(alias T)() {
+	benchmark!(T)(fullyQualifiedName!T, 1.seconds, 1337);
+}
+
+void benchmark(alias T)(Duration maxRuntime) {
+	benchmark!(T)(fullyQualifiedName!T, maxRuntime, 1337);
+}
+
+void benchmark(alias T)(string name) {
+	benchmark!(T)(name, 1.seconds, 1337);
+}
+
+void benchmark(alias T)(string name, Duration maxRuntime) {
+	benchmark!(T)(name, maxRuntime, 1337);
+}
+
 unittest
 {
 	immutable(ubyte)[] s = cast(immutable(ubyte)[])"Hello";
 	string str = cast(string)s;
 	assert(str == "Hello");
+}
+
+unittest
+{
+	import core.thread;
+
+	struct Foo {
+		void superSlowMethod(int a, Gen!(int,-10,10) b) {
+			Thread.sleep(1.seconds/4);
+			doNotOptimizeAway(cast(void*)&a);
+		}
+	}
+
+	Foo a;
+
+	auto del = delegate(int ai, Gen!(int,-10,10) b) { a.superSlowMethod(ai, b);
+	};
+
+	benchmark!(del)();
+}
+
+extern(C) void doNotOptimizeAway(void* p);
+
+void main() {
+
 }
