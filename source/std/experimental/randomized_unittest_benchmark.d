@@ -206,12 +206,15 @@ struct Benchmark
 {
     string filename; // where to write the benchmark result to
     string funcname; // the name of the benchmark
+    size_t rounds;  // the number of times the functions is supposed to be
+                    //executed
     string timeScale; // the unit the benchmark is measuring in
     real avgStopWatch; // the avg time it takes to get the clocktime twice
     bool dontWrite; // if set, no data is written to the the file name "filename"
     // true if, RndValueGen opApply was interrupt unexpectitally
     Appender!(Duration[]) ticks; // the stopped times, there will be rounds ticks
     size_t ticksIndex = 0; // the index into ticks
+    size_t curRound = 0; // the number of rounds run
     MonoTime startTime;
     Duration timeSpend; // overall time spend running the benchmark function
 
@@ -222,11 +225,13 @@ struct Benchmark
         filename = The $(D filename) will be used as a filename to store the
             results.
     */
-    static auto opCall(in string funcname, in string filename = __FILE__)
+    static auto opCall(in string funcname, in size_t rounds, 
+            in string filename = __FILE__)
     {
         Benchmark ret;
         ret.filename = filename;
         ret.funcname = funcname;
+        ret.rounds = rounds;
         ret.timeScale = "nsecs";
         ret.ticks = appender!(Duration[])();
         ret.avgStopWatch = avgStopWatchTime();
@@ -248,8 +253,8 @@ struct Benchmark
         MonoTime end = MonoTime.currTime;
         Duration dur = end - this.startTime;
         this.timeSpend += dur;
-
         this.ticks.put(dur);
+        ++this.curRound;
     }
 
     ~this()
@@ -277,9 +282,10 @@ struct Benchmark
             // rounds, avgStopWatch, low, 0.25 quantil, median,
             // 0.75 quantil, high
             f.writefln(
-                "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"," ~ "\"%s\",\"%s\"",
+                "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\""
+                   ~ ",\"%s\"",
                 this.funcname, Clock.currTime.toISOExtString(), this.timeScale,
-                this.rounds, this.avgStopWatch,
+                this.curRound, this.avgStopWatch,
                 q0 > this.avgStopWatch ? q0 - this.avgStopWatch : 0,
                 q25 > this.avgStopWatch ? q25 - this.avgStopWatch : 0,
                 q50 > this.avgStopWatch ? q50 - this.avgStopWatch : 0,
@@ -287,6 +293,28 @@ struct Benchmark
                 q100 > this.avgStopWatch ? q100 - this.avgStopWatch : 0);
         }
     }
+}
+
+/* Return $(D true) is the passed $(D T) is a $(D Gen) struct.
+
+A $(D Gen!T) is something that implicitly converts to $(D T) and has a methods
+called $(D gen) accepting a $(D ref Random).
+
+This module already brings Gens for numeric types and strings.
+*/
+template isGen(T)
+{
+    static if (is(T : Gen!(S), S...))
+        enum isGen = true;
+    else
+        enum isGen = false;
+}
+
+///
+unittest
+{
+    static assert(!isGen!int);
+    static assert(isGen!(Gen!(int, 0, 10)));
 }
 
 /** A $(D Gen) type that generates numeric values between the values of the
@@ -380,22 +408,6 @@ unittest
         assert(!str.empty);
         assertNotThrown(validate(str));
     }
-}
-
-// Return $(D true) is the passed $(D T) is a $(D Gen) struct.
-template isGen(T)
-{
-    static if (is(T : Gen!(S), S...))
-        enum isGen = true;
-    else
-        enum isGen = false;
-}
-
-///
-unittest
-{
-    static assert(!isGen!int);
-    static assert(isGen!(Gen!(int, 0, 10)));
 }
 
 /** This type will generate a $(D Gen!T) for all passed $(D T...).
@@ -545,47 +557,48 @@ Params:
         not be interrupted
     rndSeed = The seed to the random number generator used to populate the
         parameter passed to the function to benchmark.
+    rounds = The maximum numbers of times the callable $(D T) is called.
 */
-void benchmark(alias T)(string name, Duration maxRuntime, int rndSeed)
+void benchmark(alias T)(string name, Duration maxRuntime, int rndSeed,
+     in size_t rounds)
 {
-    auto bench = Benchmark(name, 1000);
+    auto bench = Benchmark(name, rounds);
     auto rnd = Random(rndSeed);
     auto valueGenerator = RndValueGen!(Parameters!T)(&rnd);
 
-    size_t rounds = 0;
-    while (bench.timeSpend <= maxRuntime, rounds < 10000)
+    while (bench.timeSpend <= maxRuntime, bench.curRound < rounds)
     {
         valueGenerator.genValues();
 
         bench.start();
         T(valueGenerator.values);
         bench.stop();
-        ++rounds;
+        ++bench.curRound;
     }
 }
 
 /// Ditto
 void benchmark(alias T)()
 {
-    benchmark!(T)(fullyQualifiedName!T, 1.seconds, 1337);
+    benchmark!(T)(fullyQualifiedName!T, 1.seconds, 1337, 10000);
 }
 
 /// Ditto
 void benchmark(alias T)(Duration maxRuntime)
 {
-    benchmark!(T)(fullyQualifiedName!T, maxRuntime, 1337);
+    benchmark!(T)(fullyQualifiedName!T, maxRuntime, 1337, 10000);
 }
 
 /// Ditto
 void benchmark(alias T)(string name)
 {
-    benchmark!(T)(name, 1.seconds, 1337);
+    benchmark!(T)(name, 1.seconds, 1337, 10000);
 }
 
 /// Ditto
 void benchmark(alias T)(string name, Duration maxRuntime)
 {
-    benchmark!(T)(name, maxRuntime, 1337);
+    benchmark!(T)(name, maxRuntime, 1337, 10000);
 }
 
 unittest
