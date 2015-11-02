@@ -6,3 +6,5 @@ preBuildCommands "cc -c source/std/experimental/donotoptimizeaway.c"
 dflags "donotoptimizeaway.o"
 lflags "donotoptimizeaway.o"
 targetType "library"
+license "boost"
+
