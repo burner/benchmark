@@ -126,7 +126,7 @@ unittest
 }
 
 import core.time : Duration, seconds;
-import core.time : TickDuration, to, MonoTime, dur;
+import core.time : to, MonoTime, dur;
 import std.array : appender, Appender, array;
 import std.datetime : StopWatch, DateTime, Clock;
 import std.meta : staticMap;
@@ -137,7 +137,7 @@ import std.traits : fullyQualifiedName, isFloatingPoint, isIntegral, isNumeric,
 import std.typetuple : TypeTuple;
 import std.utf : byDchar, count;
 
-private auto modeStopWatchTime()
+private auto medianStopWatchTime()
 {
     import core.time;
     import std.algorithm : sort;
@@ -156,21 +156,20 @@ private auto modeStopWatchTime()
 
 	sort(times[]);
 
-    //return to!("nsecs", real)(cast(TickDuration) diff) / numRounds;
-    return to!("nsecs", real)(cast(TickDuration)times[$ / 2]);
+    return times[$ / 2].total!"nsecs";
 }
 
-private TickDuration getQuantilTick(double q)(Duration[] ticks) pure @safe
+private Duration getQuantilTick(double q)(Duration[] ticks) pure @safe
 {
     size_t idx = cast(size_t)(ticks.length * q);
 
     if (ticks.length % 2 == 1)
     {
-        return cast(TickDuration) ticks[idx];
+        return ticks[idx];
     }
     else
     {
-        return cast(TickDuration)((ticks[idx] + ticks[idx - 1]) / 2);
+        return (ticks[idx] + ticks[idx - 1]) / 2;
     }
 }
 
@@ -181,26 +180,23 @@ unittest
 
     auto ticks = [1, 2, 3, 4, 5].map!(a => dur!"seconds"(a)).array;
 
-    TickDuration q25 = getQuantilTick!0.25(ticks);
-    assert(q25 == TickDuration.from!"seconds"(2));
+    Duration q25 = getQuantilTick!0.25(ticks);
+    assert(q25 == dur!"seconds"(2), q25.toString());
 
-    TickDuration q50 = getQuantilTick!0.50(ticks);
-    assert(q50 == TickDuration.from!"seconds"(3));
+    Duration q50 = getQuantilTick!0.50(ticks);
+    assert(q50 == dur!"seconds"(3), q25.toString());
 
-    TickDuration q75 = getQuantilTick!0.75(ticks);
-    assert(q75 == TickDuration.from!"seconds"(4));
+    Duration q75 = getQuantilTick!0.75(ticks);
+    assert(q75 == dur!"seconds"(4), q25.toString());
 
     q25 = getQuantilTick!0.25(ticks[0 .. 4]);
-    long q25l = q25.to!("seconds", long)();
-    assert(q25l == 1);
+    assert(q25 == dur!"seconds"(1) + dur!"msecs"(500), q25.toString());
 
     q50 = getQuantilTick!0.50(ticks[0 .. 4]);
-    long q50l = q50.to!("seconds", long)();
-    assert(q50l == 2, std.conv.to!string(q50l));
+    assert(q50 == dur!"seconds"(2) + dur!"msecs"(500), q25.toString());
 
     q75 = getQuantilTick!0.75(ticks[0 .. 4]);
-    long q75l = q75.to!("seconds", long)();
-    assert(q75l == 3, std.conv.to!string(q75l));
+    assert(q75 == dur!"seconds"(3) + dur!"msecs"(500), q25.toString());
 }
 
 /** This $(D struct) takes care of the time taking and outputting of the
@@ -213,7 +209,7 @@ struct Benchmark
     size_t rounds;  // the number of times the functions is supposed to be
                     //executed
     string timeScale; // the unit the benchmark is measuring in
-    real modeStopWatch; // the mode time it takes to get the clocktime twice
+    real medianStopWatch; // the median time it takes to get the clocktime twice
     bool dontWrite; // if set, no data is written to the the file name "filename"
     // true if, RndValueGen opApply was interrupt unexpectitally
     Appender!(Duration[]) ticks; // the stopped times, there will be rounds ticks
@@ -238,7 +234,7 @@ struct Benchmark
         ret.rounds = rounds;
         ret.timeScale = "nsecs";
         ret.ticks = appender!(Duration[])();
-        ret.modeStopWatch = modeStopWatchTime();
+        ret.medianStopWatch = medianStopWatchTime();
         ret.timeSpend = dur!"seconds"(0);
         return ret;
     }
@@ -276,25 +272,30 @@ struct Benchmark
             scope (exit)
                 f.close();
 
-            auto q0 = (cast(TickDuration) sortedTicks[0]).to!("nsecs", real)() / this.rounds;
-            auto q25 = getQuantilTick!0.25(sortedTicks).to!("nsecs", real)() / this.rounds;
-            auto q50 = getQuantilTick!0.50(sortedTicks).to!("nsecs", real)() / this.rounds;
-            auto q75 = getQuantilTick!0.75(sortedTicks).to!("nsecs", real)() / this.rounds;
-            auto q100 = (cast(TickDuration) sortedTicks[$ - 1]).to!("nsecs", real)() / this.rounds;
+            auto q0 = sortedTicks[0].total!("nsecs")() / 
+				cast(double)this.rounds;
+            auto q25 = getQuantilTick!0.25(sortedTicks).total!("nsecs")() / 
+				cast(double)this.rounds;
+            auto q50 = getQuantilTick!0.50(sortedTicks).total!("nsecs")() / 
+				cast(double)this.rounds;
+            auto q75 = getQuantilTick!0.75(sortedTicks).total!("nsecs")() / 
+				cast(double)this.rounds;
+            auto q100 = sortedTicks[$ - 1].total!("nsecs")() / 
+				cast(double)this.rounds;
 
             // funcName, the data when the benchmark was created, unit of time,
-            // rounds, modeStopWatch, low, 0.25 quantil, median,
+            // rounds, medianStopWatch, low, 0.25 quantil, median,
             // 0.75 quantil, high
             f.writefln(
                 "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\""
                    ~ ",\"%s\"",
                 this.funcname, Clock.currTime.toISOExtString(), this.timeScale,
-                this.curRound, this.modeStopWatch,
-                q0 > this.modeStopWatch ? q0 - this.modeStopWatch : 0,
-                q25 > this.modeStopWatch ? q25 - this.modeStopWatch : 0,
-                q50 > this.modeStopWatch ? q50 - this.modeStopWatch : 0,
-                q75 > this.modeStopWatch ? q75 - this.modeStopWatch : 0,
-                q100 > this.modeStopWatch ? q100 - this.modeStopWatch : 0);
+                this.curRound, this.medianStopWatch,
+                q0 > this.medianStopWatch ? q0 - this.medianStopWatch : 0,
+                q25 > this.medianStopWatch ? q25 - this.medianStopWatch : 0,
+                q50 > this.medianStopWatch ? q50 - this.medianStopWatch : 0,
+                q75 > this.medianStopWatch ? q75 - this.medianStopWatch : 0,
+                q100 > this.medianStopWatch ? q100 - this.medianStopWatch : 0);
         }
     }
 }
@@ -658,20 +659,13 @@ void benchmark(alias T)(string name, Duration maxRuntime)
 
 unittest
 {
-    immutable(ubyte)[] s = cast(immutable(ubyte)[]) "Hello";
-    string str = cast(string) s;
-    assert(str == "Hello");
-}
-
-unittest
-{
-    import core.thread;
+    import core.thread : Thread;
 
     struct Foo
     {
         void superSlowMethod(int a, Gen!(int, -10, 10) b)
         {
-            Thread.sleep(1.seconds / 400000);
+            Thread.sleep(1.seconds / 250);
             doNotOptimizeAway(a);
         }
     }
