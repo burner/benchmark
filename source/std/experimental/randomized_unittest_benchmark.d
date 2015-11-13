@@ -7,7 +7,7 @@ monitoring.
 */
 module std.experimental.randomized_unittest_benchmark;
 
-import std.experimental.logger;
+debug import std.experimental.logger;
 
 /// The following examples show an overview of the given functionalities.
 unittest
@@ -140,20 +140,24 @@ import std.utf : byDchar, count;
 private auto avgStopWatchTime()
 {
     import core.time;
+    import std.algorithm : sort;
 
-    MonoTime sw = MonoTime.currTime;
+    enum numRounds = 501;
+	Duration[numRounds] times;
 
-    enum numRounds = 500;
     MonoTime dummy;
     for (size_t i = 0; i < numRounds; ++i)
     {
+    	MonoTime sw = MonoTime.currTime;
         dummy = MonoTime.currTime;
         dummy = MonoTime.currTime;
+    	times[i] = MonoTime.currTime - sw;
     }
 
-    auto diff = MonoTime.currTime - sw;
+	sort(times[]);
 
-    return to!("nsecs", real)(cast(TickDuration) diff) / numRounds;
+    //return to!("nsecs", real)(cast(TickDuration) diff) / numRounds;
+    return to!("nsecs", real)(cast(TickDuration)times[$ / 2]);
 }
 
 private TickDuration getQuantilTick(double q)(Duration[] ticks) pure @safe
@@ -261,7 +265,7 @@ struct Benchmark
     {
         import std.stdio : File;
 
-        if (!this.dontWrite)
+        if (!this.dontWrite && this.ticks.data.length)
         {
             import std.algorithm : sort;
 
@@ -391,6 +395,54 @@ struct Gen(T, size_t low, size_t high) if (isSomeString!T)
     alias opCall this;
 }
 
+/// DITTO This random $(D string)s only consisting of ASCII character
+struct GenASCIIString(size_t low, size_t high)
+{
+    static string charSet;
+    static immutable size_t numCharsInCharSet;
+
+    static this()
+    {
+        import std.uni : unicode;
+        import std.conv : to;
+        import std.format : format;
+        import std.range : chain, iota;
+        import std.algorithm : map, joiner;
+
+        GenASCIIString!(low, high).charSet = to!string(
+			chain(iota(0x21, 0x7E).map!(a => to!char(cast(dchar) a))
+				//.joiner.array
+				.array
+			)
+		);
+
+        GenASCIIString!(low, high).numCharsInCharSet = count(charSet);
+    }
+
+    void gen(ref Random gen)
+    {
+        auto app = appender!string();
+        app.reserve(high);
+        size_t numElems = uniform!("[]")(low, high, gen);
+
+        for (size_t i = 0; i < numElems; ++i)
+        {
+            size_t toSelect = uniform!("[)")(0, numCharsInCharSet, gen);
+            app.put(charSet[toSelect]);
+		}
+
+        this.value = app.data;
+	}
+
+    ref string opCall()
+    {
+        return this.value;
+    }
+
+    string value;
+    alias opCall this;
+}
+
 unittest
 {
     import std.utf : validate;
@@ -498,6 +550,8 @@ template ParameterToGen(T)
         alias ParameterToGen = Gen!(T, T.min_normal, T.max);
     else static if (isSomeString!T)
         alias ParameterToGen = Gen!(T, 0, 32);
+    else static if (is(T : GenASCIIString!(S), S...))
+        alias ParameterToGen = T;
     else
         static assert(false);
 }
@@ -526,12 +580,13 @@ unittest
     }
 }
 
-private void funToBenchmark(int a, float b, Gen!(int, -5, 5) c, string d)
+private void funToBenchmark(int a, float b, Gen!(int, -5, 5) c, string d,
+	GenASCIIString!(1, 10) e)
 {
     import core.thread;
 
     Thread.sleep(1.seconds / 100000);
-    writeln(a, " ", b, " ", c, " ", d);
+    writeln(a, " ", b, " ", c, " ", d, " ", e);
 }
 
 unittest
