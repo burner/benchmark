@@ -137,7 +137,7 @@ import std.traits : fullyQualifiedName, isFloatingPoint, isIntegral, isNumeric,
 import std.typetuple : TypeTuple;
 import std.utf : byDchar, count;
 
-private auto avgStopWatchTime()
+private auto modeStopWatchTime()
 {
     import core.time;
     import std.algorithm : sort;
@@ -213,7 +213,7 @@ struct Benchmark
     size_t rounds;  // the number of times the functions is supposed to be
                     //executed
     string timeScale; // the unit the benchmark is measuring in
-    real avgStopWatch; // the avg time it takes to get the clocktime twice
+    real modeStopWatch; // the mode time it takes to get the clocktime twice
     bool dontWrite; // if set, no data is written to the the file name "filename"
     // true if, RndValueGen opApply was interrupt unexpectitally
     Appender!(Duration[]) ticks; // the stopped times, there will be rounds ticks
@@ -238,7 +238,7 @@ struct Benchmark
         ret.rounds = rounds;
         ret.timeScale = "nsecs";
         ret.ticks = appender!(Duration[])();
-        ret.avgStopWatch = avgStopWatchTime();
+        ret.modeStopWatch = modeStopWatchTime();
         ret.timeSpend = dur!"seconds"(0);
         return ret;
     }
@@ -283,18 +283,18 @@ struct Benchmark
             auto q100 = (cast(TickDuration) sortedTicks[$ - 1]).to!("nsecs", real)() / this.rounds;
 
             // funcName, the data when the benchmark was created, unit of time,
-            // rounds, avgStopWatch, low, 0.25 quantil, median,
+            // rounds, modeStopWatch, low, 0.25 quantil, median,
             // 0.75 quantil, high
             f.writefln(
                 "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\""
                    ~ ",\"%s\"",
                 this.funcname, Clock.currTime.toISOExtString(), this.timeScale,
-                this.curRound, this.avgStopWatch,
-                q0 > this.avgStopWatch ? q0 - this.avgStopWatch : 0,
-                q25 > this.avgStopWatch ? q25 - this.avgStopWatch : 0,
-                q50 > this.avgStopWatch ? q50 - this.avgStopWatch : 0,
-                q75 > this.avgStopWatch ? q75 - this.avgStopWatch : 0,
-                q100 > this.avgStopWatch ? q100 - this.avgStopWatch : 0);
+                this.curRound, this.modeStopWatch,
+                q0 > this.modeStopWatch ? q0 - this.modeStopWatch : 0,
+                q25 > this.modeStopWatch ? q25 - this.modeStopWatch : 0,
+                q50 > this.modeStopWatch ? q50 - this.modeStopWatch : 0,
+                q75 > this.modeStopWatch ? q75 - this.modeStopWatch : 0,
+                q100 > this.modeStopWatch ? q100 - this.modeStopWatch : 0);
         }
     }
 }
