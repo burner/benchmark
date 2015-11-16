@@ -160,7 +160,7 @@ private auto medianStopWatchTime()
 
 	sort(times[]);
 
-    return times[$ / 2].total!"nsecs";
+    return times[$ / 2].total!"hnsecs";
 }
 
 private Duration getQuantilTick(double q)(Duration[] ticks) pure @safe
@@ -236,7 +236,7 @@ struct Benchmark
         ret.filename = filename;
         ret.funcname = funcname;
         ret.rounds = rounds;
-        ret.timeScale = "nsecs";
+        ret.timeScale = "hnsecs";
         ret.ticks = appender!(Duration[])();
         ret.medianStopWatch = medianStopWatchTime();
         return ret;
@@ -275,15 +275,15 @@ struct Benchmark
             scope (exit)
                 f.close();
 
-            auto q0 = sortedTicks[0].total!("nsecs")() / 
+            auto q0 = sortedTicks[0].total!("hnsecs")() / 
 				cast(double)this.rounds;
-            auto q25 = getQuantilTick!0.25(sortedTicks).total!("nsecs")() / 
+            auto q25 = getQuantilTick!0.25(sortedTicks).total!("hnsecs")() / 
 				cast(double)this.rounds;
-            auto q50 = getQuantilTick!0.50(sortedTicks).total!("nsecs")() / 
+            auto q50 = getQuantilTick!0.50(sortedTicks).total!("hnsecs")() / 
 				cast(double)this.rounds;
-            auto q75 = getQuantilTick!0.75(sortedTicks).total!("nsecs")() / 
+            auto q75 = getQuantilTick!0.75(sortedTicks).total!("hnsecs")() / 
 				cast(double)this.rounds;
-            auto q100 = sortedTicks[$ - 1].total!("nsecs")() / 
+            auto q100 = sortedTicks[$ - 1].total!("hnsecs")() / 
 				cast(double)this.rounds;
 
             // funcName, the data when the benchmark was created, unit of time,
@@ -305,8 +305,9 @@ struct Benchmark
 
 /* Return $(D true) is the passed $(D T) is a $(D Gen) struct.
 
-A $(D Gen!T) is something that implicitly converts to $(D T) and has a methods
-called $(D gen) accepting a $(D ref Random).
+A $(D Gen!T) is something that implicitly converts to $(D T), has a methods
+called $(D gen) accepting a $(D ref Random) and has an $(D bisect) method
+returning a $(D Bisect!T) instance.
 
 This module already brings Gens for numeric types, strings and ascii strings.
 
@@ -326,6 +327,11 @@ unittest
 {
     static assert(!isGen!int);
     static assert(isGen!(Gen!(int, 0, 10)));
+}
+
+struct Bisect(T) {
+	T low;
+	T high;
 }
 
 /** A $(D Gen) type that generates numeric values between the values of the
@@ -348,6 +354,16 @@ struct Gen(T, T low, T high) if (isNumeric!T)
         return this.value;
     }
 
+	Bisect!(typeof(this)) bisect() {
+		import std.conv : to;
+
+		typeof(return) ret;
+		ret.low.value = this.value;
+		ret.high.value = to!T(this.value + 1);
+		
+		return ret;
+	}
+
     alias opCall this;
 }
 
@@ -358,6 +374,8 @@ struct Gen(T, size_t low, size_t high) if (isSomeString!T)
 {
     static T charSet;
     static immutable size_t numCharsInCharSet;
+
+    T value;
 
     static this()
     {
@@ -398,7 +416,14 @@ struct Gen(T, size_t low, size_t high) if (isSomeString!T)
         return this.value;
     }
 
-    T value;
+	Bisect!(typeof(this)) bisect() {
+		typeof(return) ret;
+		ret.low.value = this.value[0 .. $/2];
+		ret.high.value = this.value[$/2 .. $];
+		
+		return ret;
+	}
+
     alias opCall this;
 }
 
@@ -407,6 +432,8 @@ struct GenASCIIString(size_t low, size_t high)
 {
     static string charSet;
     static immutable size_t numCharsInCharSet;
+
+    string value;
 
     static this()
     {
@@ -446,7 +473,14 @@ struct GenASCIIString(size_t low, size_t high)
         return this.value;
     }
 
-    string value;
+	Bisect!(typeof(this)) bisect() {
+		typeof(return) ret;
+		ret.low.value = this.value[0 .. $/2];
+		ret.high.value = this.value[$/2 .. $];
+		
+		return ret;
+	}
+
     alias opCall this;
 }
 
@@ -631,13 +665,17 @@ void benchmark(alias T)(string name, Duration maxRuntime, int rndSeed,
     {
         valueGenerator.genValues();
 
+		bool didThrow = false;
         bench.start();
-        T(valueGenerator.values);
-        bench.stop();
-        ++bench.curRound;
-		logf("%s %d", bench.timeSpend.total!"nsecs", bench.curRound);
+		try {
+			T(valueGenerator.values);
+		} catch(Throwable t) {
+			didThrow = false;
+		} finally {
+        	bench.stop();
+        	++bench.curRound;
+		}
     }
-
 }
 
 /// Ditto
