@@ -125,8 +125,7 @@ unittest
     execution was abnormaliy interrupted. */
 }
 
-import core.time : Duration, seconds;
-import core.time : to, MonoTime, dur;
+import core.time : MonoTimeImpl, Duration, ClockType, dur, seconds;
 import std.array : appender, Appender, array;
 import std.datetime : StopWatch, DateTime, Clock;
 import std.meta : staticMap;
@@ -137,6 +136,9 @@ import std.traits : fullyQualifiedName, isFloatingPoint, isIntegral, isNumeric,
 import std.typetuple : TypeTuple;
 import std.utf : byDchar, count;
 
+/* This function used $(D MonoTime.currTime) to time how long $(D
+MonoTime.currTime) takes to return the current time.
+*/
 private auto medianStopWatchTime()
 {
     import core.time;
@@ -145,13 +147,14 @@ private auto medianStopWatchTime()
     enum numRounds = 501;
 	Duration[numRounds] times;
 
-    MonoTime dummy;
+    MonoTimeImpl!(ClockType.precise) dummy;
     for (size_t i = 0; i < numRounds; ++i)
     {
-    	MonoTime sw = MonoTime.currTime;
-        dummy = MonoTime.currTime;
-        dummy = MonoTime.currTime;
-    	times[i] = MonoTime.currTime - sw;
+    	auto sw = MonoTimeImpl!(ClockType.precise).currTime;
+        dummy = MonoTimeImpl!(ClockType.precise).currTime;
+        dummy = MonoTimeImpl!(ClockType.precise).currTime;
+		doNotOptimizeAway(dummy);
+    	times[i] = MonoTimeImpl!(ClockType.precise).currTime - sw;
     }
 
 	sort(times[]);
@@ -215,7 +218,7 @@ struct Benchmark
     Appender!(Duration[]) ticks; // the stopped times, there will be rounds ticks
     size_t ticksIndex = 0; // the index into ticks
     size_t curRound = 0; // the number of rounds run
-    MonoTime startTime;
+    MonoTimeImpl!(ClockType.precise) startTime;
     Duration timeSpend; // overall time spend running the benchmark function
 
     /** The constructor for the $(D Benchmark).
@@ -242,7 +245,7 @@ struct Benchmark
     /** A call to this method will start the time taking process */
     void start()
     {
-        this.startTime = MonoTime.currTime;
+        this.startTime = MonoTimeImpl!(ClockType.precise).currTime;
     }
 
     /** A call to this method will stop the time taking process, and
@@ -250,7 +253,7 @@ struct Benchmark
     */
     void stop()
     {
-        MonoTime end = MonoTime.currTime;
+        auto end = MonoTimeImpl!(ClockType.precise).currTime;
         Duration dur = end - this.startTime;
         this.timeSpend += dur;
         this.ticks.put(dur);
@@ -305,7 +308,10 @@ struct Benchmark
 A $(D Gen!T) is something that implicitly converts to $(D T) and has a methods
 called $(D gen) accepting a $(D ref Random).
 
-This module already brings Gens for numeric types and strings.
+This module already brings Gens for numeric types, strings and ascii strings.
+
+If a function needs to be benchmarked that has a parameter of custom type a
+custom $(D Gen) is required.
 */
 template isGen(T)
 {
@@ -470,7 +476,6 @@ functions accepting $(D T...).
 */
 struct RndValueGen(T...)
 {
-
     /* $(D Values) is a collection of $(D Gen) types created through 
     $(D ParameterToGen) of passed $(T ...).
     */
@@ -587,7 +592,7 @@ private void funToBenchmark(int a, float b, Gen!(int, -5, 5) c, string d,
     import core.thread;
 
     Thread.sleep(1.seconds / 100000);
-    writeln(a, " ", b, " ", c, " ", d, " ", e);
+    doNotOptimizeAway(a, b, c, d, e);
 }
 
 unittest
@@ -665,7 +670,7 @@ unittest
     {
         void superSlowMethod(int a, Gen!(int, -10, 10) b)
         {
-            Thread.sleep(1.seconds / 250);
+            Thread.sleep(1.seconds / 250000);
             doNotOptimizeAway(a);
         }
     }
