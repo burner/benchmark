@@ -136,15 +136,16 @@ import std.traits : fullyQualifiedName, isFloatingPoint, isIntegral, isNumeric,
 import std.typetuple : TypeTuple;
 import std.utf : byDchar, count;
 
-/* This function used $(D MonoTime.currTime) to time how long $(D
-MonoTime.currTime) takes to return the current time.
+/* This function used $(D MonoTimeImpl!(ClockType.precise).currTime) to time 
+how long $(D MonoTimeImpl!(ClockType.precise).currTime) takes to return 
+the current time.
 */
 private auto medianStopWatchTime()
 {
     import core.time;
     import std.algorithm : sort;
 
-    enum numRounds = 501;
+    enum numRounds = 51;
 	Duration[numRounds] times;
 
     MonoTimeImpl!(ClockType.precise) dummy;
@@ -238,7 +239,6 @@ struct Benchmark
         ret.timeScale = "nsecs";
         ret.ticks = appender!(Duration[])();
         ret.medianStopWatch = medianStopWatchTime();
-        ret.timeSpend = dur!"seconds"(0);
         return ret;
     }
 
@@ -635,7 +635,9 @@ void benchmark(alias T)(string name, Duration maxRuntime, int rndSeed,
         T(valueGenerator.values);
         bench.stop();
         ++bench.curRound;
+		logf("%s %d", bench.timeSpend.total!"nsecs", bench.curRound);
     }
+
 }
 
 /// Ditto
