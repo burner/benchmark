@@ -9,6 +9,44 @@ module std.experimental.randomized_unittest_benchmark;
 
 debug import std.experimental.logger;
 
+private template AliasSeq(TList...) // TODO remove on next result
+{
+    alias AliasSeq = TList;
+}
+
+private template aliasSeqOf(alias range) // TODO remove on next result
+{
+    import std.range : isInputRange;
+    import std.traits : isArray, isNarrowString;
+
+    alias ArrT = typeof(range);
+    static if (isArray!ArrT && !isNarrowString!ArrT)
+    {
+        static if (range.length == 0)
+        {
+            alias aliasSeqOf = AliasSeq!();
+        }
+        else static if (range.length == 1)
+        {
+            alias aliasSeqOf = AliasSeq!(range[0]);
+        }
+        else
+        {
+            alias aliasSeqOf = AliasSeq!(aliasSeqOf!(range[0 .. $/2]), aliasSeqOf!(range[$/2 .. $]));
+        }
+    }
+    else static if (isInputRange!ArrT)
+    {
+        import std.array : array;
+        alias aliasSeqOf = aliasSeqOf!(array(range));
+    }
+    else
+    {
+        import std.string : format;
+        static assert(false, format("Cannot transform %s of type %s into a AliasSeq.", range, ArrT.stringof));
+    }
+}
+
 /// The following examples show an overview of the given functionalities.
 unittest
 {
@@ -425,6 +463,27 @@ struct Gen(T, size_t low, size_t high) if (isSomeString!T)
 	}
 
     alias opCall this;
+}
+
+unittest
+{
+	import std.typetuple : TypeTuple;
+	//import std.meta : aliasSeqOf; TODO uncomment with next release
+    import std.range : iota;
+
+	auto r = Random(1337);
+	foreach(T; TypeTuple!(string,wstring,dstring))
+	{
+		foreach(L; aliasSeqOf!(iota(0, 2)))
+		{
+			foreach(H; aliasSeqOf!(iota(L, 2)))
+			{
+				Gen!(T, L, H) a;
+				a.gen(r);
+				auto b = a.bisect();
+			}
+		}
+	}
 }
 
 /// DITTO This random $(D string)s only consisting of ASCII character
