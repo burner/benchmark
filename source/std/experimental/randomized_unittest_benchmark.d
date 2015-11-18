@@ -32,18 +32,23 @@ private template aliasSeqOf(alias range) // TODO remove on next result
         }
         else
         {
-            alias aliasSeqOf = AliasSeq!(aliasSeqOf!(range[0 .. $/2]), aliasSeqOf!(range[$/2 .. $]));
+            alias aliasSeqOf = AliasSeq!(aliasSeqOf!(range[0 .. $ / 2]),
+                aliasSeqOf!(range[$ / 2 .. $]));
         }
     }
     else static if (isInputRange!ArrT)
     {
         import std.array : array;
+
         alias aliasSeqOf = aliasSeqOf!(array(range));
     }
     else
     {
         import std.string : format;
-        static assert(false, format("Cannot transform %s of type %s into a AliasSeq.", range, ArrT.stringof));
+
+        static assert(false,
+            format("Cannot transform %s of type %s into a AliasSeq.", range,
+            ArrT.stringof));
     }
 }
 
@@ -63,7 +68,7 @@ unittest
 
         debug
         {
-            /* As the paramters to the function assume random values, 
+            /* As the paramters to the function assume random values,
             $(D benchmark) allows to quickly test function with various input
             values. As the verification of computed value or state will at to
             the runtime of the function to benchmark, it makes sense to only
@@ -112,7 +117,7 @@ unittest
 unittest
 {
     auto rnd = Random(1337); // we need a random generator
- 	// a benchmark object that stores the
+    // a benchmark object that stores the
     auto ben = Benchmark("aGoodName", 20, "filename");
     // benchmark values
 
@@ -120,16 +125,16 @@ unittest
     // instance from writing the benchmark
     // results to a file
 
-    /* This instance of $(D RndValueGen) named $(D generator) will be used 
-    later as the random parameter value source in the following call to the 
-    function to benchmark. The $(D RndValueGen) takes one construction 
-    parameter, the source of randomness. 
+    /* This instance of $(D RndValueGen) named $(D generator) will be used
+    later as the random parameter value source in the following call to the
+    function to benchmark. The $(D RndValueGen) takes one construction
+    parameter, the source of randomness.
     */
     auto generator = RndValueGen!(["a", "b", "c"],
-		int, // a random $(D int) between $(D int.min)
-    	// and $(D int.max)
-    	Gen!(float, 0.0, 10.0), // a random $(D float) between -10 and 10
-    	Gen!(string, 0, 9)) // a random $(D string) with a length
+        int, // a random $(D int) between $(D int.min) and $(D int.max)
+        Gen!(float, 0.0, 10.0), // a random $(D float) between -10 and 10
+        Gen!(string, 0,
+        9)) // a random $(D string) with a length
     (&rnd); // between 0 and 9
 
     /* a, b and c will have random values created inside $(D generator) that
@@ -165,34 +170,38 @@ unittest
     execution was abnormaliy interrupted. */
 }
 
-struct BenchmarkOptions {
-	string funcName; // the name of the function to benchmark
-	string filename; 
-	Duration duration = 1.seconds;
-	size_t maxRounds = 10000;
-	int seed = 1337;
+/** The options  controlling the behaviour of benchmark. */
+struct BenchmarkOptions
+{
+    string funcName; // the name of the function to benchmark
+    string filename; // the name of the file the results will be appended to
+    Duration duration = 1.seconds; // the time after which the function to
+                                   // benchmark is not executed anymore
+    size_t maxRounds = 10000; // the maximum number of times the function
+                              // to benchmark is called
+    int seed = 1337; // the seed to the random number generator
 
-	static BenchmarkOptions opCall(string filename = __FILE__) {
-		BenchmarkOptions ret;
-		ret.filename = filename;
-		return ret;
-	}
+    static BenchmarkOptions opCall(string filename = __FILE__)
+    {
+        BenchmarkOptions ret;
+        ret.filename = filename;
+        return ret;
+    }
 }
 
 import core.time : MonoTimeImpl, Duration, ClockType, dur, seconds;
-import std.array : appender, Appender, array;
+import std.array : appender, array;
 import std.datetime : StopWatch, DateTime, Clock;
 import std.meta : staticMap;
 import std.conv : to;
-import std.random : Random, uniform, randomSample;
-import std.stdio : writeln;
+import std.random : Random, uniform;
 import std.traits : fullyQualifiedName, isFloatingPoint, isIntegral, isNumeric,
     isSomeString, Parameters, ParameterIdentifierTuple;
 import std.typetuple : TypeTuple;
 import std.utf : byDchar, count;
 
-/* This function used $(D MonoTimeImpl!(ClockType.precise).currTime) to time 
-how long $(D MonoTimeImpl!(ClockType.precise).currTime) takes to return 
+/* This function used $(D MonoTimeImpl!(ClockType.precise).currTime) to time
+how long $(D MonoTimeImpl!(ClockType.precise).currTime) takes to return
 the current time.
 */
 private auto medianStopWatchTime()
@@ -201,19 +210,19 @@ private auto medianStopWatchTime()
     import std.algorithm : sort;
 
     enum numRounds = 51;
-	Duration[numRounds] times;
+    Duration[numRounds] times;
 
     MonoTimeImpl!(ClockType.precise) dummy;
     for (size_t i = 0; i < numRounds; ++i)
     {
-    	auto sw = MonoTimeImpl!(ClockType.precise).currTime;
+        auto sw = MonoTimeImpl!(ClockType.precise).currTime;
         dummy = MonoTimeImpl!(ClockType.precise).currTime;
         dummy = MonoTimeImpl!(ClockType.precise).currTime;
-		doNotOptimizeAway(dummy);
-    	times[i] = MonoTimeImpl!(ClockType.precise).currTime - sw;
+        doNotOptimizeAway(dummy);
+        times[i] = MonoTimeImpl!(ClockType.precise).currTime - sw;
     }
 
-	sort(times[]);
+    sort(times[]);
 
     return times[$ / 2].total!"hnsecs";
 }
@@ -263,10 +272,12 @@ statistics.
 */
 struct Benchmark
 {
+	import std.array : Appender;
+
     string filename; // where to write the benchmark result to
     string funcname; // the name of the benchmark
-    size_t rounds;  // the number of times the functions is supposed to be
-                    //executed
+    size_t rounds; // the number of times the functions is supposed to be
+    //executed
     string timeScale; // the unit the benchmark is measuring in
     real medianStopWatch; // the median time it takes to get the clocktime twice
     bool dontWrite; // if set, no data is written to the the file name "filename"
@@ -330,24 +341,24 @@ struct Benchmark
                 f.close();
 
             auto q0 = sortedTicks[0].total!("hnsecs")() / 
-				cast(double)this.rounds;
+				cast(double) this.rounds;
             auto q25 = getQuantilTick!0.25(sortedTicks).total!("hnsecs")() / 
-				cast(double)this.rounds;
-            auto q50 = getQuantilTick!0.50(sortedTicks).total!("hnsecs")() / 
-				cast(double)this.rounds;
-            auto q75 = getQuantilTick!0.75(sortedTicks).total!("hnsecs")() / 
-				cast(double)this.rounds;
+				cast(double) this.rounds;
+            auto q50 = getQuantilTick!0.50(sortedTicks).total!("hnsecs")() /
+			   	cast(double) this.rounds;
+            auto q75 = getQuantilTick!0.75(sortedTicks).total!("hnsecs")() /
+				cast(double) this.rounds;
             auto q100 = sortedTicks[$ - 1].total!("hnsecs")() / 
-				cast(double)this.rounds;
+				cast(double) this.rounds;
 
             // funcName, the data when the benchmark was created, unit of time,
             // rounds, medianStopWatch, low, 0.25 quantil, median,
             // 0.75 quantil, high
             f.writefln(
                 "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\""
-                   ~ ",\"%s\"",
-                this.funcname, Clock.currTime.toISOExtString(), this.timeScale,
-                this.curRound, this.medianStopWatch,
+                ~ ",\"%s\"",
+                this.funcname, Clock.currTime.toISOExtString(),
+                this.timeScale, this.curRound, this.medianStopWatch,
                 q0 > this.medianStopWatch ? q0 - this.medianStopWatch : 0,
                 q25 > this.medianStopWatch ? q25 - this.medianStopWatch : 0,
                 q50 > this.medianStopWatch ? q50 - this.medianStopWatch : 0,
@@ -403,21 +414,27 @@ struct Gen(T, T low, T high) if (isNumeric!T)
         return this.value;
     }
 
-	void toString(scope void delegate(const (char)[]) sink) {
-		import std.format : formattedWrite;
+    void toString(scope void delegate(const(char)[]) sink)
+    {
+        import std.format : formattedWrite;
 
-		static if(isFloatingPoint!T) {
-			static if(low == T.min_normal && high == T.max)
-			{
-				formattedWrite(sink, "'%s'", this.value);
-			}
-		} else static if(low == T.min && high == T.max) {
-			formattedWrite(sink, "'%s'", this.value);
-		} else {
-			formattedWrite(sink, "'%s' low = '%s' high = '%s'", this.value,
-				low, high);
-		}
-	}
+        static if (isFloatingPoint!T)
+        {
+            static if (low == T.min_normal && high == T.max)
+            {
+                formattedWrite(sink, "'%s'", this.value);
+            }
+        }
+        else static if (low == T.min && high == T.max)
+        {
+            formattedWrite(sink, "'%s'", this.value);
+        }
+        else
+        {
+            formattedWrite(sink, "'%s' low = '%s' high = '%s'", this.value,
+                low, high);
+        }
+    }
 
     alias opCall this;
 }
@@ -435,7 +452,6 @@ struct Gen(T, size_t low, size_t high) if (isSomeString!T)
     static this()
     {
         import std.uni : unicode;
-        import std.conv : to;
         import std.format : format;
         import std.range : chain, iota;
         import std.algorithm : map, joiner;
@@ -471,43 +487,48 @@ struct Gen(T, size_t low, size_t high) if (isSomeString!T)
         return this.value;
     }
 
-	void toString(scope void delegate(const (char)[]) sink) {
-		import std.format : formattedWrite;
+    void toString(scope void delegate(const(char)[]) sink)
+    {
+        import std.format : formattedWrite;
 
-		static if(low == 0 && high == 32) {
-			formattedWrite(sink, "'%s'", this.value);
-		} else {
-			formattedWrite(sink, "'%s' low = '%s' high = '%s'", this.value,
-				low, high);
-		}
-	}
+        static if (low == 0 && high == 32)
+        {
+            formattedWrite(sink, "'%s'", this.value);
+        }
+        else
+        {
+            formattedWrite(sink, "'%s' low = '%s' high = '%s'", this.value,
+                low, high);
+        }
+    }
 
     alias opCall this;
 }
 
 unittest
 {
-	import std.typetuple : TypeTuple;
-	//import std.meta : aliasSeqOf; TODO uncomment with next release
-    import std.range : iota;
-	import std.array : empty;
+    import std.typetuple : TypeTuple;
 
-	auto r = Random(1337);
-	foreach(T; TypeTuple!(string,wstring,dstring))
-	{
-		foreach(L; aliasSeqOf!(iota(0, 2)))
-		{
-			foreach(H; aliasSeqOf!(iota(L, 2)))
-			{
-				Gen!(T, L, H) a;
-				a.gen(r);
-				if(L) 
-				{
-					assert(!a.value.empty);
-				}
-			}
-		}
-	}
+    //import std.meta : aliasSeqOf; TODO uncomment with next release
+    import std.range : iota;
+    import std.array : empty;
+
+    auto r = Random(1337);
+    foreach (T; TypeTuple!(string, wstring, dstring))
+    {
+        foreach (L; aliasSeqOf!(iota(0, 2)))
+        {
+            foreach (H; aliasSeqOf!(iota(L, 2)))
+            {
+                Gen!(T, L, H) a;
+                a.gen(r);
+                if (L)
+                {
+                    assert(!a.value.empty);
+                }
+            }
+        }
+    }
 }
 
 /// DITTO This random $(D string)s only consisting of ASCII character
@@ -521,14 +542,12 @@ struct GenASCIIString(size_t low, size_t high)
     static this()
     {
         import std.uni : unicode;
-        import std.conv : to;
         import std.format : format;
         import std.range : chain, iota;
         import std.algorithm : map, joiner;
 
-        GenASCIIString!(low, high).charSet = to!string(
-			chain(iota(0x21, 0x7E).map!(a => to!char(cast(dchar) a)).array)
-		);
+        GenASCIIString!(low, high).charSet = to!string(chain(iota(0x21,
+            0x7E).map!(a => to!char(cast(dchar) a)).array));
 
         GenASCIIString!(low, high).numCharsInCharSet = count(charSet);
     }
@@ -543,26 +562,30 @@ struct GenASCIIString(size_t low, size_t high)
         {
             size_t toSelect = uniform!("[)")(0, numCharsInCharSet, gen);
             app.put(charSet[toSelect]);
-		}
+        }
 
         this.value = app.data;
-	}
+    }
 
     ref string opCall()
     {
         return this.value;
     }
 
-	void toString(scope void delegate(const (char)[]) sink) {
-		import std.format : formattedWrite;
+    void toString(scope void delegate(const(char)[]) sink)
+    {
+        import std.format : formattedWrite;
 
-		static if(low == 0 && high == 32) {
-			formattedWrite(sink, "'%s'", this.value);
-		} else {
-			formattedWrite(sink, "'%s' low = '%s' high = '%s'", this.value,
-				low, high);
-		}
-	}
+        static if (low == 0 && high == 32)
+        {
+            formattedWrite(sink, "'%s'", this.value);
+        }
+        else
+        {
+            formattedWrite(sink, "'%s' low = '%s' high = '%s'", this.value,
+                low, high);
+        }
+    }
 
     alias opCall this;
 }
@@ -590,14 +613,14 @@ functions accepting $(D T...).
 */
 struct RndValueGen(T...)
 {
-    /* $(D Values) is a collection of $(D Gen) types created through 
+    /* $(D Values) is a collection of $(D Gen) types created through
     $(D ParameterToGen) of passed $(T ...).
     */
     alias Values = staticMap!(ParameterToGen, T[1 .. $]);
     /// Ditto
     Values values;
 
-	string[] parameterNames = T[0];
+    string[] parameterNames = T[0];
 
     /* The constructor accepting the required random number generator.
     Params:
@@ -624,22 +647,23 @@ struct RndValueGen(T...)
         }
     }
 
-	void toString(scope void delegate(const (char)[]) sink) {
-		import std.format : formattedWrite;
+    void toString(scope void delegate(const(char)[]) sink)
+    {
+        import std.format : formattedWrite;
 
-		foreach(idx, ref it; values) {
-			formattedWrite(sink, "'%s' = %s ",
-				parameterNames[idx], it);
-		}
-	}
+        foreach (idx, ref it; values)
+        {
+            formattedWrite(sink, "'%s' = %s ", parameterNames[idx], it);
+        }
+    }
 }
 
 ///
 unittest
 {
     auto rnd = Random(1337);
-    auto generator = RndValueGen!(["i", "f"], 
-		Gen!(int, 0, 10), Gen!(float, 0.0, 10.0))(&rnd);
+    auto generator = RndValueGen!(["i", "f"], Gen!(int, 0, 10), Gen!(float,
+        0.0, 10.0))(&rnd);
     generator.genValues();
 
     static fun(int i, float f)
@@ -660,8 +684,8 @@ unittest
     }
 
     auto rnd = Random(1337);
-    auto generator = RndValueGen!(["i", "f"],
-		Gen!(int, 0, 10), Gen!(float, 0.0, 10.0))(&rnd);
+    auto generator = RndValueGen!(["i", "f"], Gen!(int, 0, 10), Gen!(float,
+        0.0, 10.0))(&rnd);
 
     generator.genValues();
     foreach (i; 0 .. 1000)
@@ -696,52 +720,53 @@ unittest
 
     static fun(int i)
     {
-		assert(i == 1337);
+        assert(i == 1337);
     }
 
     GenInt a;
-	a.value = 1337;
+    a.value = 1337;
     fun(a);
 }
 
 unittest
 {
     foreach (T; TypeTuple!(byte, ubyte, ushort, short, uint, int, ulong, long,
-            float, double, real, string, wstring, dstring))
+            float, double, real, string, wstring,
+            dstring))
     {
         alias TP = staticMap!(ParameterToGen, T);
         static assert(isGen!TP);
     }
 }
 
-/*unittest
+unittest
 {
-	static void funToBenchmark(int a, float b, Gen!(int, -5, 5) c, string d,
-		GenASCIIString!(1, 10) e)
-	{
-	    import core.thread;
-	
-	    Thread.sleep(1.seconds / 100000);
-	    doNotOptimizeAway(a, b, c, d, e);
-	}
+    static void funToBenchmark(int a, float b, Gen!(int, -5, 5) c, string d,
+        GenASCIIString!(1, 10) e)
+    {
+        import core.thread;
+
+        Thread.sleep(1.seconds / 100000);
+        doNotOptimizeAway(a, b, c, d, e);
+    }
 
     benchmark!funToBenchmark();
     benchmark!funToBenchmark("Another Name");
     benchmark!funToBenchmark("Another Name", 2.seconds);
     benchmark!funToBenchmark(2.seconds);
-}*/
+}
 
-/** This function runs the passed callable $(D T) for the duration of 
+/** This function runs the passed callable $(D T) for the duration of
 $(D maxRuntime). It will count how often $(D T) is run in the duration and
 how long each run took to complete.
 
 Unless compiled in release mode, statictis will be printed to $(D stderr).
-If compiled in release mode the statictis are appended to a file called 
+If compiled in release mode the statictis are appended to a file called
 $(D name).
 
 Params:
-	opts = An $(D BenchmarkOptions) instance that encompasses all possible
-		parameter of benchmark.
+    opts = An $(D BenchmarkOptions) instance that encompasses all possible
+        parameter of benchmark.
     name = The name of the benchmark. The name is also used as filename to
         save the benchmark results.
     maxRuntime = The maximul time the benchmark is executed. The last run will
@@ -754,67 +779,68 @@ void benchmark(alias T)(const ref BenchmarkOptions opts)
 {
     auto bench = Benchmark(opts.funcName, opts.maxRounds, opts.filename);
     auto rnd = Random(opts.seed);
-	enum string[] parameterNames = [ParameterIdentifierTuple!T];
-    auto valueGenerator = RndValueGen!(
-		parameterNames, 
-		Parameters!T)
-			(&rnd);
+    enum string[] parameterNames = [ParameterIdentifierTuple!T];
+    auto valueGenerator = RndValueGen!(parameterNames, Parameters!T)(&rnd);
 
-    while (bench.timeSpend <= opts.duration 
-			&& bench.curRound < opts.maxRounds)
+    while (bench.timeSpend <= opts.duration && bench.curRound < opts.maxRounds)
     {
         valueGenerator.genValues();
 
         bench.start();
-		try {
-			T(valueGenerator.values);
-		} catch(Throwable t) {
-			logf("unittest with name %s failed when parameter %s where passed",
-				opts.funcName, valueGenerator);
-			break;
-		} finally {
-        	bench.stop();
-        	++bench.curRound;
-		}
+        try
+        {
+            T(valueGenerator.values);
+        }
+        catch (Throwable t)
+        {
+            logf("unittest with name %s failed when parameter %s where passed",
+                opts.funcName, valueGenerator);
+            break;
+        }
+        finally
+        {
+            bench.stop();
+            ++bench.curRound;
+        }
     }
 }
 
 /// Ditto
 void benchmark(alias T)(string filename = __FILE__)
 {
-	auto opt = BenchmarkOptions(filename);
-	opt.funcName = fullyQualifiedName!T;
+    auto opt = BenchmarkOptions(filename);
+    opt.funcName = fullyQualifiedName!T;
     benchmark!(T)(opt);
 }
 
 /// Ditto
 void benchmark(alias T)(Duration maxRuntime, string filename = __FILE__)
 {
-	auto opt = BenchmarkOptions(filename);
-	opt.funcName = fullyQualifiedName!T;
-	opt.duration = maxRuntime;
+    auto opt = BenchmarkOptions(filename);
+    opt.funcName = fullyQualifiedName!T;
+    opt.duration = maxRuntime;
     benchmark!(T)(opt);
 }
 
 /// Ditto
 void benchmark(alias T)(string name, string filename = __FILE__)
 {
-	auto opt = BenchmarkOptions(filename);
-	opt.funcName = name;
+    auto opt = BenchmarkOptions(filename);
+    opt.funcName = name;
     benchmark!(T)(opt);
 }
 
 /// Ditto
 void benchmark(alias T)(string name, Duration maxRuntime,
-	 string filename = __FILE__)
+    string filename = __FILE__)
 {
-	auto opt = BenchmarkOptions(filename);
-	opt.funcName = name;
-	opt.duration = maxRuntime;
+    auto opt = BenchmarkOptions(filename);
+    opt.funcName = name;
+    opt.duration = maxRuntime;
     benchmark!(T)(opt);
 }
 
-/*unittest
+unittest
 {
     import core.thread : Thread;
 
@@ -834,15 +860,43 @@ void benchmark(alias T)(string name, Duration maxRuntime,
     };
 
     benchmark!(del)();
-}*/
+}
 
-unittest {
-	static int failingFun(int a, string b) {
-		throw new Exception("Hello");
-	}
+unittest // test that the function parameter names are correct
+{
+    import std.string : indexOf;
 
-	log();
-	benchmark!failingFun();
+    class SingleLineLogger : Logger
+    {
+        this()
+        {
+            super(LogLevel.info);
+        }
+
+        override void writeLogMsg(ref LogEntry payload) @safe
+        {
+            this.line = payload.msg;
+        }
+
+        string line;
+    }
+
+    auto oldLogger = stdThreadLocalLog;
+    auto newLogger = new SingleLineLogger();
+    stdThreadLocalLog = newLogger;
+    scope (exit)
+        stdThreadLocalLog = oldLogger;
+
+    static int failingFun(int a, string b)
+    {
+        throw new Exception("Hello");
+    }
+
+    log();
+    benchmark!failingFun();
+
+    assert(newLogger.line.indexOf("'a'") != -1);
+    assert(newLogger.line.indexOf("'b'") != -1);
 }
 
 /** A functions that makes sure that the passed parameter are not optimized
