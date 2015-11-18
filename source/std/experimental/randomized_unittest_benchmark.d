@@ -125,10 +125,11 @@ unittest
     function to benchmark. The $(D RndValueGen) takes one construction 
     parameter, the source of randomness. 
     */
-    auto generator = RndValueGen!(int, // a random $(D int) between $(D int.min)
-    // and $(D int.max)
-    Gen!(float, 0.0, 10.0), // a random $(D float) between -10 and 10
-    Gen!(string, 0, 9)) // a random $(D string) with a length
+    auto generator = RndValueGen!(["a", "b", "c"],
+		int, // a random $(D int) between $(D int.min)
+    	// and $(D int.max)
+    	Gen!(float, 0.0, 10.0), // a random $(D float) between -10 and 10
+    	Gen!(string, 0, 9)) // a random $(D string) with a length
     (&rnd); // between 0 and 9
 
     /* a, b and c will have random values created inside $(D generator) that
@@ -186,7 +187,7 @@ import std.conv : to;
 import std.random : Random, uniform, randomSample;
 import std.stdio : writeln;
 import std.traits : fullyQualifiedName, isFloatingPoint, isIntegral, isNumeric,
-    isSomeString, Parameters;
+    isSomeString, Parameters, ParameterIdentifierTuple;
 import std.typetuple : TypeTuple;
 import std.utf : byDchar, count;
 
@@ -382,11 +383,6 @@ unittest
     static assert(isGen!(Gen!(int, 0, 10)));
 }
 
-struct Bisect(T) {
-	T low;
-	T high;
-}
-
 /** A $(D Gen) type that generates numeric values between the values of the
 template parameter $(D low) and $(D high).
 */
@@ -395,13 +391,11 @@ struct Gen(T, T low, T high) if (isNumeric!T)
     alias Value = T;
 
     T value;
-	T realLow = to!T(low);
-	T realHigh = to!T(high);
 
     void gen(ref Random gen)
     {
         static assert(low <= high);
-        this.value = uniform!("[]")(this.realLow, this.realHigh, gen);
+        this.value = uniform!("[]")(low, high, gen);
     }
 
     ref T opCall()
@@ -409,69 +403,23 @@ struct Gen(T, T low, T high) if (isNumeric!T)
         return this.value;
     }
 
-	Bisect!(typeof(this)) bisect() {
-		import std.conv : to;
+	void toString(scope void delegate(const (char)[]) sink) {
+		import std.format : formattedWrite;
 
-		typeof(return) ret;
-
-		ret.low.realLow = this.realLow;
-		if(this.value - 1 > this.realLow) {
-			ret.low.realHigh = to!T(this.value - 1);
+		static if(isFloatingPoint!T) {
+			static if(low == T.min_normal && high == T.max)
+			{
+				formattedWrite(sink, "'%s'", this.value);
+			}
+		} else static if(low == T.min && high == T.max) {
+			formattedWrite(sink, "'%s'", this.value);
 		} else {
-			ret.low.realHigh = this.value;
+			formattedWrite(sink, "'%s' low = '%s' high = '%s'", this.value,
+				low, high);
 		}
-		ret.low.value = to!T(
-			ret.low.realLow + ((ret.low.realHigh - ret.low.realLow) / 2)
-		);
-
-		ret.high.realLow = this.value;
-		ret.high.realHigh = this.realHigh;
-		ret.high.value = to!T(
-			ret.high.realLow + ((ret.high.realHigh - ret.high.realLow) / 2)
-		);
-		
-		return ret;
 	}
 
     alias opCall this;
-}
-
-unittest
-{
-	import std.format : format;
-
-	Gen!(int, -4, 4) a;
-	a.value = 0;
-	assert(a.realLow == -4);
-	assert(a.realHigh == 4);
-
-	auto b = a.bisect();
-	assert(b.low.realLow == -4);
-	assert(b.low.realHigh == -1, format("%d", b.low.realHigh));
-	assert(b.low.value == -3, format("%d", b.low.value));
-
-	assert(b.high.realLow == 0);
-	assert(b.high.realHigh == 4);
-	assert(b.high.value == 2, format("%d", b.high.value));
-
-	a.value = -4;
-	assert(a.realLow == -4);
-	assert(a.realHigh == 4);
-
-	b = a.bisect();
-	assert(b.low.realLow == -4);
-	assert(b.low.realHigh == -4, format("%d", b.low.realHigh));
-	assert(b.low.value == -4, format("%d", b.low.value));
-
-	assert(b.high.realLow == -4);
-	assert(b.high.realHigh == 4);
-	assert(b.high.value == 0, format("%d", b.high.value));
-
-	auto c = b.low.bisect();
-	assert(b.low == c.low);
-	assert(b.low == c.high);
-	assert(b.low.value == c.low.value);
-	assert(b.low.value == c.high.value);
 }
 
 /** A $(D Gen) type that generates unicode strings with a number of
@@ -523,43 +471,18 @@ struct Gen(T, size_t low, size_t high) if (isSomeString!T)
         return this.value;
     }
 
-	Bisect!(typeof(this)) bisect() {
-		import std.utf : byDchar;
-		import std.range : drop, take;
-		typeof(return) ret;
+	void toString(scope void delegate(const (char)[]) sink) {
+		import std.format : formattedWrite;
 
-		auto l = this.value.count();
-		ret.low.value = this.value.byDchar().take(l / 2).array.to!T;
-		ret.high.value = this.value.byDchar().drop(l / 2).array.to!T;
-		
-		return ret;
+		static if(low == 0 && high == 32) {
+			formattedWrite(sink, "'%s'", this.value);
+		} else {
+			formattedWrite(sink, "'%s' low = '%s' high = '%s'", this.value,
+				low, high);
+		}
 	}
 
     alias opCall this;
-}
-
-unittest
-{
-	assert(null == null);
-
-	Gen!(string, 1, 4) a;
-	a.value = "aßcd";
-
-	auto b = a.bisect();
-	assert(b.low.value == "aß");
-	assert(b.high.value == "cd");
-
-	b = b.low.bisect();
-	assert(b.low.value == "a");
-	assert(b.high.value == "ß");
-
-	b = b.low.bisect();
-	assert(b.low.value == "");
-	assert(b.high.value == "a");
-
-	auto c = b.low.bisect();
-	assert(b.low == c.low);
-	assert(b.low == c.high);
 }
 
 unittest
@@ -582,7 +505,6 @@ unittest
 				{
 					assert(!a.value.empty);
 				}
-				auto b = a.bisect();
 			}
 		}
 	}
@@ -631,39 +553,18 @@ struct GenASCIIString(size_t low, size_t high)
         return this.value;
     }
 
-	Bisect!(typeof(this)) bisect() {
-		typeof(return) ret;
-		ret.low.value = this.value[0 .. $/2];
-		ret.high.value = this.value[$/2 .. $];
-		
-		return ret;
+	void toString(scope void delegate(const (char)[]) sink) {
+		import std.format : formattedWrite;
+
+		static if(low == 0 && high == 32) {
+			formattedWrite(sink, "'%s'", this.value);
+		} else {
+			formattedWrite(sink, "'%s' low = '%s' high = '%s'", this.value,
+				low, high);
+		}
 	}
 
     alias opCall this;
-}
-
-unittest
-{
-	assert(null == null);
-
-	GenASCIIString!(1, 4) a;
-	a.value = "abcd";
-
-	auto b = a.bisect();
-	assert(b.low.value == "ab");
-	assert(b.high.value == "cd");
-
-	b = b.low.bisect();
-	assert(b.low.value == "a");
-	assert(b.high.value == "b");
-
-	b = b.low.bisect();
-	assert(b.low.value == "");
-	assert(b.high.value == "a");
-
-	auto c = b.low.bisect();
-	assert(b.low == c.low);
-	assert(b.low == c.high);
 }
 
 unittest
@@ -692,9 +593,11 @@ struct RndValueGen(T...)
     /* $(D Values) is a collection of $(D Gen) types created through 
     $(D ParameterToGen) of passed $(T ...).
     */
-    alias Values = staticMap!(ParameterToGen, T);
+    alias Values = staticMap!(ParameterToGen, T[1 .. $]);
     /// Ditto
     Values values;
+
+	string[] parameterNames = T[0];
 
     /* The constructor accepting the required random number generator.
     Params:
@@ -720,13 +623,23 @@ struct RndValueGen(T...)
             it.gen(*this.rnd);
         }
     }
+
+	void toString(scope void delegate(const (char)[]) sink) {
+		import std.format : formattedWrite;
+
+		foreach(idx, ref it; values) {
+			formattedWrite(sink, "'%s' = %s ",
+				parameterNames[idx], it);
+		}
+	}
 }
 
 ///
 unittest
 {
     auto rnd = Random(1337);
-    auto generator = RndValueGen!(Gen!(int, 0, 10), Gen!(float, 0.0, 10.0))(&rnd);
+    auto generator = RndValueGen!(["i", "f"], 
+		Gen!(int, 0, 10), Gen!(float, 0.0, 10.0))(&rnd);
     generator.genValues();
 
     static fun(int i, float f)
@@ -747,7 +660,8 @@ unittest
     }
 
     auto rnd = Random(1337);
-    auto generator = RndValueGen!(Gen!(int, 0, 10), Gen!(float, 0.0, 10.0))(&rnd);
+    auto generator = RndValueGen!(["i", "f"],
+		Gen!(int, 0, 10), Gen!(float, 0.0, 10.0))(&rnd);
 
     generator.genValues();
     foreach (i; 0 .. 1000)
@@ -840,7 +754,11 @@ void benchmark(alias T)(const ref BenchmarkOptions opts)
 {
     auto bench = Benchmark(opts.funcName, opts.maxRounds, opts.filename);
     auto rnd = Random(opts.seed);
-    auto valueGenerator = RndValueGen!(Parameters!T)(&rnd);
+	enum string[] parameterNames = [ParameterIdentifierTuple!T];
+    auto valueGenerator = RndValueGen!(
+		parameterNames, 
+		Parameters!T)
+			(&rnd);
 
     while (bench.timeSpend <= opts.duration 
 			&& bench.curRound < opts.maxRounds)
