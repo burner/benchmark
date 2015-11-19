@@ -173,7 +173,7 @@ unittest
 /** The options  controlling the behaviour of benchmark. */
 struct BenchmarkOptions
 {
-    string funcName; // the name of the function to benchmark
+    string funcname; // the name of the function to benchmark
     string filename; // the name of the file the results will be appended to
     Duration duration = 1.seconds; // the time after which the function to
                                    // benchmark is not executed anymore
@@ -181,11 +181,9 @@ struct BenchmarkOptions
                               // to benchmark is called
     int seed = 1337; // the seed to the random number generator
 
-    static BenchmarkOptions opCall(string filename = __FILE__)
+    this(string funcname)
     {
-        BenchmarkOptions ret;
-        ret.filename = filename;
-        return ret;
+        this.funcname = funcname;
     }
 }
 
@@ -295,16 +293,14 @@ struct Benchmark
         filename = The $(D filename) will be used as a filename to store the
             results.
     */
-    static auto opCall(in string funcname, in size_t rounds, in string filename)
+    this(in string funcname, in size_t rounds, in string filename)
     {
-        Benchmark ret;
-        ret.filename = filename;
-        ret.funcname = funcname;
-        ret.rounds = rounds;
-        ret.timeScale = "hnsecs";
-        ret.ticks = appender!(Duration[])();
-        ret.medianStopWatch = medianStopWatchTime();
-        return ret;
+        this.filename = filename;
+        this.funcname = funcname;
+        this.rounds = rounds;
+        this.timeScale = "hnsecs";
+        this.ticks = appender!(Duration[])();
+        this.medianStopWatch = medianStopWatchTime();
     }
 
     /** A call to this method will start the time taking process */
@@ -329,6 +325,7 @@ struct Benchmark
     {
         import std.stdio : File;
 
+		//logf("\n  outputfileanme %s\n  funcname %s", this.filename, this.funcname);
         if (!this.dontWrite && this.ticks.data.length)
         {
             import std.algorithm : sort;
@@ -351,7 +348,7 @@ struct Benchmark
             auto q100 = sortedTicks[$ - 1].total!("hnsecs")() / 
 				cast(double) this.rounds;
 
-            // funcName, the data when the benchmark was created, unit of time,
+            // funcname, the data when the benchmark was created, unit of time,
             // rounds, medianStopWatch, low, 0.25 quantil, median,
             // 0.75 quantil, high
             f.writefln(
@@ -777,7 +774,7 @@ Params:
 */
 void benchmark(alias T)(const ref BenchmarkOptions opts)
 {
-    auto bench = Benchmark(opts.funcName, opts.maxRounds, opts.filename);
+    auto bench = Benchmark(opts.funcname, opts.maxRounds, opts.filename);
     auto rnd = Random(opts.seed);
     enum string[] parameterNames = [ParameterIdentifierTuple!T];
     auto valueGenerator = RndValueGen!(parameterNames, Parameters!T)(&rnd);
@@ -794,7 +791,7 @@ void benchmark(alias T)(const ref BenchmarkOptions opts)
         catch (Throwable t)
         {
             logf("unittest with name %s failed when parameter %s where passed",
-                opts.funcName, valueGenerator);
+                opts.funcname, valueGenerator);
             break;
         }
         finally
@@ -806,36 +803,40 @@ void benchmark(alias T)(const ref BenchmarkOptions opts)
 }
 
 /// Ditto
-void benchmark(alias T)(string filename = __FILE__)
+void benchmark(alias T)(string funcname = "", string filename = __FILE__)
 {
-    auto opt = BenchmarkOptions(filename);
-    opt.funcName = fullyQualifiedName!T;
+	import std.string : empty;
+
+    auto opt = BenchmarkOptions(
+		funcname.empty ? fullyQualifiedName!T : funcname
+	);
+    opt.filename = filename;
     benchmark!(T)(opt);
 }
 
 /// Ditto
 void benchmark(alias T)(Duration maxRuntime, string filename = __FILE__)
 {
-    auto opt = BenchmarkOptions(filename);
-    opt.funcName = fullyQualifiedName!T;
+    auto opt = BenchmarkOptions(fullyQualifiedName!T);
+    opt.filename = filename;
     opt.duration = maxRuntime;
     benchmark!(T)(opt);
 }
 
 /// Ditto
-void benchmark(alias T)(string name, string filename = __FILE__)
+/*void benchmark(alias T)(string name, string filename = __FILE__)
 {
-    auto opt = BenchmarkOptions(filename);
-    opt.funcName = name;
+    auto opt = BenchmarkOptions(name);
+    opt.filename = filename;
     benchmark!(T)(opt);
-}
+}*/
 
 /// Ditto
 void benchmark(alias T)(string name, Duration maxRuntime,
     string filename = __FILE__)
 {
-    auto opt = BenchmarkOptions(filename);
-    opt.funcName = name;
+    auto opt = BenchmarkOptions(name);
+    opt.filename = filename;
     opt.duration = maxRuntime;
     benchmark!(T)(opt);
 }
