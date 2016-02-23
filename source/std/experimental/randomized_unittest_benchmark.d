@@ -2,55 +2,12 @@
 
 To gain appropriate test coverage and to test unexpected inputs, randomized
 unittest are a possible approach.
-Additionally, they lend itself for reproducible benchmarking and performance
-monitoring.
+Additionally, they lend themselves for reproducible benchmarking and
+performance monitoring.
 */
 module std.experimental.randomized_unittest_benchmark;
 
 debug import std.experimental.logger;
-
-private template AliasSeq(TList...) // TODO remove on next result
-{
-    alias AliasSeq = TList;
-}
-
-private template aliasSeqOf(alias range) // TODO remove on next result
-{
-    import std.range : isInputRange;
-    import std.traits : isArray, isNarrowString;
-
-    alias ArrT = typeof(range);
-    static if (isArray!ArrT && !isNarrowString!ArrT)
-    {
-        static if (range.length == 0)
-        {
-            alias aliasSeqOf = AliasSeq!();
-        }
-        else static if (range.length == 1)
-        {
-            alias aliasSeqOf = AliasSeq!(range[0]);
-        }
-        else
-        {
-            alias aliasSeqOf = AliasSeq!(aliasSeqOf!(range[0 .. $ / 2]),
-                aliasSeqOf!(range[$ / 2 .. $]));
-        }
-    }
-    else static if (isInputRange!ArrT)
-    {
-        import std.array : array;
-
-        alias aliasSeqOf = aliasSeqOf!(array(range));
-    }
-    else
-    {
-        import std.string : format;
-
-        static assert(false,
-            format("Cannot transform %s of type %s into a AliasSeq.", range,
-            ArrT.stringof));
-    }
-}
 
 /// The following examples show an overview of the given functionalities.
 unittest
@@ -88,9 +45,9 @@ unittest
 /// Ditto
 unittest
 {
-    /* This function takes to $(D Gen) types as parameter. These $(D Gen)
+    /* This function takes two $(D Gen) types as parameter. These $(D Gen)
      types are implicitly convertiable to the type given as the first template
-    type parameter. The second and thrid template parameter give the upper and
+    type parameter. The second and third template parameter give the upper and
     lower bound of the randomly selected value given to the parameter. This
     allows to test functions which only work for a specific range of values.
     */
@@ -270,7 +227,7 @@ statistics.
 */
 struct Benchmark
 {
-	import std.array : Appender;
+    import std.array : Appender;
 
     string filename; // where to write the benchmark result to
     string funcname; // the name of the benchmark
@@ -325,7 +282,6 @@ struct Benchmark
     {
         import std.stdio : File;
 
-		//logf("\n  outputfileanme %s\n  funcname %s", this.filename, this.funcname);
         if (!this.dontWrite && this.ticks.data.length)
         {
             import std.algorithm : sort;
@@ -337,16 +293,16 @@ struct Benchmark
             scope (exit)
                 f.close();
 
-            auto q0 = sortedTicks[0].total!("hnsecs")() / 
-				cast(double) this.rounds;
-            auto q25 = getQuantilTick!0.25(sortedTicks).total!("hnsecs")() / 
-				cast(double) this.rounds;
+            auto q0 = sortedTicks[0].total!("hnsecs")() /
+                cast(double) this.rounds;
+            auto q25 = getQuantilTick!0.25(sortedTicks).total!("hnsecs")() /
+                cast(double) this.rounds;
             auto q50 = getQuantilTick!0.50(sortedTicks).total!("hnsecs")() /
-			   	cast(double) this.rounds;
+                   cast(double) this.rounds;
             auto q75 = getQuantilTick!0.75(sortedTicks).total!("hnsecs")() /
-				cast(double) this.rounds;
-            auto q100 = sortedTicks[$ - 1].total!("hnsecs")() / 
-				cast(double) this.rounds;
+                cast(double) this.rounds;
+            auto q100 = sortedTicks[$ - 1].total!("hnsecs")() /
+                cast(double) this.rounds;
 
             // funcname, the data when the benchmark was created, unit of time,
             // rounds, medianStopWatch, low, 0.25 quantil, median,
@@ -365,11 +321,10 @@ struct Benchmark
     }
 }
 
-/* Return $(D true) is the passed $(D T) is a $(D Gen) struct.
+/* Return $(D true) if the passed $(D T) is a $(D Gen) struct.
 
-A $(D Gen!T) is something that implicitly converts to $(D T), has a methods
-called $(D gen) accepting a $(D ref Random) and has an $(D bisect) method
-returning a $(D Bisect!T) instance.
+A $(D Gen!T) is something that implicitly converts to $(D T), has a method
+called $(D gen) that is accepting a $(D ref Random).
 
 This module already brings Gens for numeric types, strings and ascii strings.
 
@@ -506,7 +461,7 @@ unittest
 {
     import std.typetuple : TypeTuple;
 
-    //import std.meta : aliasSeqOf; TODO uncomment with next release
+    import std.meta : aliasSeqOf; //TODO uncomment with next release
     import std.range : iota;
     import std.array : empty;
 
@@ -606,7 +561,7 @@ unittest
 /** This type will generate a $(D Gen!T) for all passed $(D T...).
 Every call to $(D genValues) will call $(D gen) of all $(D Gen) structs
 present in $(D values). The member $(D values) can be passed to every
-functions accepting $(D T...).
+function accepting $(D T...).
 */
 struct RndValueGen(T...)
 {
@@ -692,7 +647,7 @@ unittest
 }
 
 /** A template that turns a $(D T) into a $(D Gen!T) unless $(D T) is
-already a $(D Gen) or no $(D Gen) for given $(D T) is avaiable.
+already a $(D Gen) or no $(D Gen) for given $(D T) is available.
 */
 template ParameterToGen(T)
 {
@@ -757,20 +712,20 @@ unittest
 $(D maxRuntime). It will count how often $(D T) is run in the duration and
 how long each run took to complete.
 
-Unless compiled in release mode, statictis will be printed to $(D stderr).
-If compiled in release mode the statictis are appended to a file called
+Unless compiled in release mode, statistics will be printed to $(D stderr).
+If compiled in release mode the statistics are appended to a file called
 $(D name).
 
 Params:
-    opts = An $(D BenchmarkOptions) instance that encompasses all possible
-        parameter of benchmark.
+    opts = A $(D BenchmarkOptions) instance that encompasses all possible
+        parameters of benchmark.
     name = The name of the benchmark. The name is also used as filename to
         save the benchmark results.
-    maxRuntime = The maximul time the benchmark is executed. The last run will
-        not be interrupted
+    maxRuntime = The maximum time the benchmark is executed. The last run will
+        not be interrupted.
     rndSeed = The seed to the random number generator used to populate the
         parameter passed to the function to benchmark.
-    rounds = The maximum numbers of times the callable $(D T) is called.
+    rounds = The maximum number of times the callable $(D T) is called.
 */
 void benchmark(alias T)(const ref BenchmarkOptions opts)
 {
@@ -790,6 +745,8 @@ void benchmark(alias T)(const ref BenchmarkOptions opts)
         }
         catch (Throwable t)
         {
+            import std.experimental.logger : logf;
+
             logf("unittest with name %s failed when parameter %s where passed",
                 opts.funcname, valueGenerator);
             break;
@@ -805,11 +762,11 @@ void benchmark(alias T)(const ref BenchmarkOptions opts)
 /// Ditto
 void benchmark(alias T)(string funcname = "", string filename = __FILE__)
 {
-	import std.string : empty;
+    import std.string : empty;
 
     auto opt = BenchmarkOptions(
-		funcname.empty ? fullyQualifiedName!T : funcname
-	);
+        funcname.empty ? fullyQualifiedName!T : funcname
+    );
     opt.filename = filename;
     benchmark!(T)(opt);
 }
@@ -866,6 +823,7 @@ unittest
 unittest // test that the function parameter names are correct
 {
     import std.string : indexOf;
+    import std.experimental.logger;
 
     class SingleLineLogger : Logger
     {
@@ -900,12 +858,12 @@ unittest // test that the function parameter names are correct
     assert(newLogger.line.indexOf("'b'") != -1);
 }
 
-/** A functions that makes sure that the passed parameter are not optimized
-away by the compiler. This function is required as optimizing compiler are
+/** A function that makes sure that the passed parameters are not optimized
+away by the compiler. This function is required as optimizing compilers are
 able to figure out that a variable is not actually used, and therefore the
 computation of the value of the variable can be removed from code. As
 benchmarking functions sometimes include computing values that are not
-actually used, this functions allows use to force the compiler not to remove
+actually used, this function allows use to force the compiler not to remove
 the code that is benchmarked.
 */
 void doNotOptimizeAway(T...)(ref T t)
