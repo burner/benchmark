@@ -874,10 +874,13 @@ void doNotOptimizeAway(T...)(ref T t)
     }
 }
 
-private void doNotOptimizeAwayImpl(void* p) {
-	import core.thread : getpid;
-	import std.stdio : writeln;
-	if(getpid() == 1) {
-		writeln(*cast(char*)p);
-	}
+private void doNotOptimizeAwayImpl(void* p)
+{
+    import core.thread : getpid;
+    import std.stdio : writeln;
+
+    if (getpid() == 0)
+    {
+        writeln(p);
+    }
 }
