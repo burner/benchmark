@@ -71,3 +71,6 @@ unittest
     benchmark!theFunctionToTest();
 }
 ```
+
+The gnuplot plotter can be found at:
+http://code.dlang.org/my_packages/benchmarkplotter
