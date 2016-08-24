@@ -1,0 +1,9 @@
+{
+	"name": "std_benchmark",
+	"authors": [
+		"Robert burner Schadek"
+	],
+	"description": "Randomized benchmark and unittesting module",
+	"copyright": "Copyright © 2015-2016, Robert burner Schadek",
+	"license": "boost"
+}
