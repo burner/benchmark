@@ -781,14 +781,6 @@ void benchmark(alias T)(Duration maxRuntime, string filename = __FILE__)
 }
 
 /// Ditto
-/*void benchmark(alias T)(string name, string filename = __FILE__)
-{
-    auto opt = BenchmarkOptions(name);
-    opt.filename = filename;
-    benchmark!(T)(opt);
-}*/
-
-/// Ditto
 void benchmark(alias T)(string name, Duration maxRuntime,
     string filename = __FILE__)
 {
