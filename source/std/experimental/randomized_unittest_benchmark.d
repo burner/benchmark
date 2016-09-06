@@ -727,40 +727,47 @@ Params:
         parameter passed to the function to benchmark.
     rounds = The maximum number of times the callable $(D T) is called.
 */
-void benchmark(alias T)(const ref BenchmarkOptions opts)
+void benchmark(alias T, alias S)(const ref BenchmarkOptions opts)
 {
-    auto bench = Benchmark(opts.funcname, opts.maxRounds, opts.filename);
+	import std.stdio;
     auto rnd = Random(opts.seed);
+
+    auto benchT = Benchmark(opts.funcname, opts.maxRounds, opts.filename);
+	bool continueT = benchT.timeSpend <= opts.duration
+			&& benchT.curRound < opts.maxRounds;
+
+	static if(S !is null) {
+		writeln(opts.funcname);
+    	auto benchS = Benchmark(opts.funcname ~ "_Baseline", opts.maxRounds, 
+				opts.filename);
+		bool continueS = benchS.timeSpend <= opts.duration
+				&& benchS.curRound < opts.maxRounds;
+	} else {
+		writeln(opts.funcname);
+		bool continueS = true;
+	}
+
     enum string[] parameterNames = [ParameterIdentifierTuple!T];
     auto valueGenerator = RndValueGen!(parameterNames, Parameters!T)(&rnd);
 
-    while (bench.timeSpend <= opts.duration && bench.curRound < opts.maxRounds)
+    while (continueT && continueS)
     {
         valueGenerator.genValues();
+		benchmarkImpl!(T)(opts, benchT, valueGenerator);
 
-        bench.start();
-        try
-        {
-            T(valueGenerator.values);
-        }
-        catch (Throwable t)
-        {
-            import std.experimental.logger : logf;
+		continueT = benchT.timeSpend <= opts.duration
+			&& benchT.curRound < opts.maxRounds;
 
-            logf("unittest with name %s failed when parameter %s where passed",
-                opts.funcname, valueGenerator);
-            break;
-        }
-        finally
-        {
-            bench.stop();
-            ++bench.curRound;
-        }
+		static if(S !is null) {
+			benchmarkImpl!(S)(opts, benchS, valueGenerator);
+			continueS = benchS.timeSpend <= opts.duration
+				&& benchS.curRound < opts.maxRounds;
+		}
     }
 }
 
 /// Ditto
-void benchmark(alias T)(string funcname = "", string filename = __FILE__)
+void benchmark(alias T, alias S = null)(string funcname = "", string filename = __FILE__)
 {
     import std.string : empty;
 
@@ -768,26 +775,53 @@ void benchmark(alias T)(string funcname = "", string filename = __FILE__)
         funcname.empty ? fullyQualifiedName!T : funcname
     );
     opt.filename = filename;
-    benchmark!(T)(opt);
+    benchmark!(T,null)(opt);
 }
 
 /// Ditto
-void benchmark(alias T)(Duration maxRuntime, string filename = __FILE__)
+void benchmark(alias T, alias S = null)(Duration maxRuntime, string filename = __FILE__)
 {
     auto opt = BenchmarkOptions(fullyQualifiedName!T);
     opt.filename = filename;
     opt.duration = maxRuntime;
-    benchmark!(T)(opt);
+    benchmark!(T,null)(opt);
 }
 
 /// Ditto
-void benchmark(alias T)(string name, Duration maxRuntime,
+void benchmark(alias T, alias S = null)(string name, Duration maxRuntime,
     string filename = __FILE__)
 {
     auto opt = BenchmarkOptions(name);
     opt.filename = filename;
     opt.duration = maxRuntime;
-    benchmark!(T)(opt);
+    benchmark!(T,null)(opt);
+}
+
+bool benchmarkImpl(alias T, Val)(const ref BenchmarkOptions opts, 
+		ref Benchmark bench, ref Val val)
+{
+   bench.start();
+   try
+   {
+       T(val.values);
+   }
+   catch (Throwable t)
+   {
+       import std.format : format;
+	   import std.algorithm.iteration : map, joiner;
+	   import std.conv : to;
+
+       throw new Exception(
+           format("unittest with name %s failed when parameter %s where passed",
+           opts.funcname, val), t
+	   );
+   }
+   finally
+   {
+       bench.stop();
+       ++bench.curRound;
+   }
+   return true;
 }
 
 unittest
@@ -798,7 +832,13 @@ unittest
     {
         void superSlowMethod(int a, Gen!(int, -10, 10) b)
         {
-            Thread.sleep(1.seconds / 250000);
+            Thread.sleep(1.seconds / 25000);
+            doNotOptimizeAway(a);
+        }
+
+        void superSlowMethodBaseLine(int a, Gen!(int, -10, 10) b)
+        {
+            Thread.sleep(1.seconds / 5000);
             doNotOptimizeAway(a);
         }
     }
@@ -809,45 +849,28 @@ unittest
         a.superSlowMethod(ai, b);
     };
 
-    benchmark!(del)();
+    auto baseline = delegate(int ai, Gen!(int, -10, 10) b) {
+        a.superSlowMethodBaseLine(ai, b);
+    };
+
+    benchmark!(del,baseline)();
 }
 
 unittest // test that the function parameter names are correct
 {
-    import std.string : indexOf;
-    import std.experimental.logger;
-
-    class SingleLineLogger : Logger
-    {
-        this()
-        {
-            super(LogLevel.info);
-        }
-
-        override void writeLogMsg(ref LogEntry payload) @safe
-        {
-            this.line = payload.msg;
-        }
-
-        string line;
-    }
-
-    auto oldLogger = stdThreadLocalLog;
-    auto newLogger = new SingleLineLogger();
-    stdThreadLocalLog = newLogger;
-    scope (exit)
-        stdThreadLocalLog = oldLogger;
-
+	import std.exception : assertThrown;
     static int failingFun(int a, string b)
     {
         throw new Exception("Hello");
     }
 
-    log();
-    benchmark!failingFun();
+    static int failingFun2(int a, string b)
+    {
+		assert(false);
+    }
 
-    assert(newLogger.line.indexOf("'a'") != -1);
-    assert(newLogger.line.indexOf("'b'") != -1);
+    assertThrown!Exception(benchmark!failingFun());
+    assertThrown!Exception(benchmark!failingFun2());
 }
 
 /** A function that makes sure that the passed parameters are not optimized
