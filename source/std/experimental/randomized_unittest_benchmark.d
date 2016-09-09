@@ -708,6 +708,11 @@ unittest
     benchmark!funToBenchmark(2.seconds);
 }
 
+struct BenchmarkResult {
+	Benchmark baseline;
+	Benchmark test;
+}
+
 /** This function runs the passed callable $(D T) for the duration of
 $(D maxRuntime). It will count how often $(D T) is run in the duration and
 how long each run took to complete.
@@ -727,43 +732,49 @@ Params:
         parameter passed to the function to benchmark.
     rounds = The maximum number of times the callable $(D T) is called.
 */
-void benchmark(alias T, alias S)(const ref BenchmarkOptions opts)
+BenchmarkResult benchmark(alias T, alias S)(const ref BenchmarkOptions opts)
 {
 	import std.stdio;
+	BenchmarkResult result;
     auto rnd = Random(opts.seed);
-
-    auto benchT = Benchmark(opts.funcname, opts.maxRounds, opts.filename);
-	bool continueT = benchT.timeSpend <= opts.duration
-			&& benchT.curRound < opts.maxRounds;
-
-	static if(S !is null) {
-		writeln(opts.funcname);
-    	auto benchS = Benchmark(opts.funcname ~ "_Baseline", opts.maxRounds, 
-				opts.filename);
-		bool continueS = benchS.timeSpend <= opts.duration
-				&& benchS.curRound < opts.maxRounds;
-	} else {
-		writeln(opts.funcname);
-		bool continueS = true;
-	}
 
     enum string[] parameterNames = [ParameterIdentifierTuple!T];
     auto valueGenerator = RndValueGen!(parameterNames, Parameters!T)(&rnd);
 
+    result.test = Benchmark(opts.funcname, opts.maxRounds, opts.filename);
+	bool continueT = result.test.timeSpend <= opts.duration
+			&& result.test.curRound < opts.maxRounds;
+
+	enum aliasSNotNull = __traits(compiles, S(valueGenerator.values));
+	pragma(msg, aliasSNotNull);
+
+	static if(aliasSNotNull) {
+		writeln(opts.funcname ~ "__S");
+    	result.baseline = Benchmark(opts.funcname ~ "_Baseline", opts.maxRounds, 
+				opts.filename);
+		bool continueS = result.baseline.timeSpend <= opts.duration
+				&& result.baseline.curRound < opts.maxRounds;
+	} else {
+		writeln(opts.funcname ~ "__Not_S");
+		bool continueS = true;
+	}
+
     while (continueT && continueS)
     {
         valueGenerator.genValues();
-		benchmarkImpl!(T)(opts, benchT, valueGenerator);
+		benchmarkImpl!(T)(opts, result.test, valueGenerator);
 
-		continueT = benchT.timeSpend <= opts.duration
-			&& benchT.curRound < opts.maxRounds;
+		continueT = result.test.timeSpend <= opts.duration
+			&& result.test.curRound < opts.maxRounds;
 
-		static if(S !is null) {
-			benchmarkImpl!(S)(opts, benchS, valueGenerator);
-			continueS = benchS.timeSpend <= opts.duration
-				&& benchS.curRound < opts.maxRounds;
+		static if(aliasSNotNull) {
+			benchmarkImpl!(S)(opts, result.baseline, valueGenerator);
+			continueS = result.baseline.timeSpend <= opts.duration
+				&& result.baseline.curRound < opts.maxRounds;
 		}
     }
+
+	return result;
 }
 
 /// Ditto
@@ -775,7 +786,7 @@ void benchmark(alias T, alias S = null)(string funcname = "", string filename = 
         funcname.empty ? fullyQualifiedName!T : funcname
     );
     opt.filename = filename;
-    benchmark!(T,null)(opt);
+    benchmark!(T,S)(opt);
 }
 
 /// Ditto
@@ -784,7 +795,7 @@ void benchmark(alias T, alias S = null)(Duration maxRuntime, string filename = _
     auto opt = BenchmarkOptions(fullyQualifiedName!T);
     opt.filename = filename;
     opt.duration = maxRuntime;
-    benchmark!(T,null)(opt);
+    benchmark!(T,S)(opt);
 }
 
 /// Ditto
@@ -794,7 +805,7 @@ void benchmark(alias T, alias S = null)(string name, Duration maxRuntime,
     auto opt = BenchmarkOptions(name);
     opt.filename = filename;
     opt.duration = maxRuntime;
-    benchmark!(T,null)(opt);
+    benchmark!(T,S)(opt);
 }
 
 bool benchmarkImpl(alias T, Val)(const ref BenchmarkOptions opts, 
@@ -854,6 +865,25 @@ unittest
     };
 
     benchmark!(del,baseline)();
+}
+
+unittest
+{
+    import core.thread : Thread;
+
+	void superSlow(int a, Gen!(int, -10, 10) b)
+	{
+	    Thread.sleep(1.seconds / 250);
+	    doNotOptimizeAway(a);
+	}
+	
+	void superSlowBaseline(int a, Gen!(int, -10, 10) b)
+	{
+	    Thread.sleep(1.seconds / 500);
+	    doNotOptimizeAway(a);
+	}
+
+    benchmark!(superSlow,superSlowBaseline)();
 }
 
 unittest // test that the function parameter names are correct
