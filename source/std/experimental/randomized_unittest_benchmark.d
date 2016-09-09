@@ -8,6 +8,8 @@ performance monitoring.
 module std.experimental.randomized_unittest_benchmark;
 
 debug import std.experimental.logger;
+import std.container.array : Array;
+
 
 /// The following examples show an overview of the given functionalities.
 unittest
@@ -182,7 +184,7 @@ private auto medianStopWatchTime()
     return times[$ / 2].total!"hnsecs";
 }
 
-private Duration getQuantilTick(double q)(Duration[] ticks) pure @safe
+private Duration getQuantilTick(double q, A)(const auto ref A ticks) pure @safe
 {
     size_t idx = cast(size_t)(ticks.length * q);
 
@@ -227,8 +229,6 @@ statistics.
 */
 struct Benchmark
 {
-    import std.array : Appender;
-
     string filename; // where to write the benchmark result to
     string funcname; // the name of the benchmark
     size_t rounds; // the number of times the functions is supposed to be
@@ -237,11 +237,12 @@ struct Benchmark
     real medianStopWatch; // the median time it takes to get the clocktime twice
     bool dontWrite; // if set, no data is written to the the file name "filename"
     // true if, RndValueGen opApply was interrupt unexpectitally
-    Appender!(Duration[]) ticks; // the stopped times, there will be rounds ticks
+    Array!(Duration) ticks; // the stopped times, there will be rounds ticks
     size_t ticksIndex = 0; // the index into ticks
     size_t curRound = 0; // the number of rounds run
     MonoTimeImpl!(ClockType.precise) startTime;
     Duration timeSpend; // overall time spend running the benchmark function
+	double[5] quantils; // q0, q.25, q.50, q.75, q.100
 
     /** The constructor for the $(D Benchmark).
     Params:
@@ -256,7 +257,7 @@ struct Benchmark
         this.funcname = funcname;
         this.rounds = rounds;
         this.timeScale = "hnsecs";
-        this.ticks = appender!(Duration[])();
+        //this.ticks = appender!(Duration[])();
         this.medianStopWatch = medianStopWatchTime();
     }
 
@@ -274,50 +275,53 @@ struct Benchmark
         auto end = MonoTimeImpl!(ClockType.precise).currTime;
         Duration dur = end - this.startTime;
         this.timeSpend += dur;
-        this.ticks.put(dur);
+        this.ticks.insertBack(dur);
         ++this.curRound;
     }
+
+	void calcuateTimes() 
+	{
+        if (!this.dontWrite && this.ticks.length)
+        {
+            import std.algorithm : sort;
+			import std.algorithm.comparison : max;
+
+            //auto sortedTicks = this.ticks.data;
+            //sortedTicks.sort();
+			sort(this.ticks[]);
+
+            this.quantils[0] = this.ticks.front.total!("hnsecs")() /
+                cast(double) this.rounds;
+            this.quantils[1] = getQuantilTick!0.25(this.ticks).total!("hnsecs")() /
+                cast(double) this.rounds;
+            this.quantils[2] = getQuantilTick!0.50(this.ticks).total!("hnsecs")() /
+                   cast(double) this.rounds;
+            this.quantils[3] = getQuantilTick!0.75(this.ticks).total!("hnsecs")() /
+                cast(double) this.rounds;
+            this.quantils[4] = this.ticks.back.total!("hnsecs")() /
+                cast(double) this.rounds;
+
+			foreach(ref it; this.quantils) {
+				it = max(it - medianStopWatch, 0);
+			}
+		}
+	}
 
     ~this()
     {
         import std.stdio : File;
 
-        if (!this.dontWrite && this.ticks.data.length)
-        {
-            import std.algorithm : sort;
+		this.calcuateTimes();
 
-            auto sortedTicks = this.ticks.data;
-            sortedTicks.sort();
-
-            auto f = File(filename ~ "_bechmark.csv", "a");
-            scope (exit)
-                f.close();
-
-            auto q0 = sortedTicks[0].total!("hnsecs")() /
-                cast(double) this.rounds;
-            auto q25 = getQuantilTick!0.25(sortedTicks).total!("hnsecs")() /
-                cast(double) this.rounds;
-            auto q50 = getQuantilTick!0.50(sortedTicks).total!("hnsecs")() /
-                   cast(double) this.rounds;
-            auto q75 = getQuantilTick!0.75(sortedTicks).total!("hnsecs")() /
-                cast(double) this.rounds;
-            auto q100 = sortedTicks[$ - 1].total!("hnsecs")() /
-                cast(double) this.rounds;
-
-            // funcname, the data when the benchmark was created, unit of time,
-            // rounds, medianStopWatch, low, 0.25 quantil, median,
-            // 0.75 quantil, high
-            f.writefln(
-                "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\""
-                ~ ",\"%s\"",
-                this.funcname, Clock.currTime.toISOExtString(),
-                this.timeScale, this.curRound, this.medianStopWatch,
-                q0 > this.medianStopWatch ? q0 - this.medianStopWatch : 0,
-                q25 > this.medianStopWatch ? q25 - this.medianStopWatch : 0,
-                q50 > this.medianStopWatch ? q50 - this.medianStopWatch : 0,
-                q75 > this.medianStopWatch ? q75 - this.medianStopWatch : 0,
-                q100 > this.medianStopWatch ? q100 - this.medianStopWatch : 0);
-        }
+        // funcname, the data when the benchmark was created, unit of time,
+        // rounds, medianStopWatch, low, 0.25 quantil, median,
+        // 0.75 quantil, high
+        auto f = File(filename ~ "_bechmark.csv", "a");
+        f.writefln(
+            "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",%(\"%s\",%)",
+            this.funcname, Clock.currTime.toISOExtString(),
+            this.timeScale, this.curRound, this.medianStopWatch,
+			this.quantils);
     }
 }
 
@@ -709,8 +713,28 @@ unittest
 }
 
 struct BenchmarkResult {
-	Benchmark baseline;
 	Benchmark test;
+	Benchmark baseline;
+
+	void toString(ORange)(auto ref ORange orange)
+	{
+		import std.format : formattedWrite;
+		this.test.calcuateTimes();
+
+		formattedWrite(orange, "Qunatils:\n%(%15.2f %)", 
+				[0.0, 0.25, 0.5, 0.75, 1.0]
+			);
+		formattedWrite(orange, "\nFunction: %s\n%(%15.7f %)",
+				this.test.funcname, this.test.quantils
+			);
+
+		if(this.baseline.ticks.length) {
+			this.baseline.calcuateTimes();
+			formattedWrite(orange, "\nBaseline %s:\n%(%15.7f %)", 
+					this.baseline.funcname, this.baseline.quantils
+				);
+		}
+	}
 }
 
 /** This function runs the passed callable $(D T) for the duration of
@@ -732,43 +756,40 @@ Params:
         parameter passed to the function to benchmark.
     rounds = The maximum number of times the callable $(D T) is called.
 */
-BenchmarkResult benchmark(alias T, alias S)(const ref BenchmarkOptions opts)
+BenchmarkResult benchmark(alias Func, alias Baseline)(const ref BenchmarkOptions opts)
 {
 	import std.stdio;
 	BenchmarkResult result;
     auto rnd = Random(opts.seed);
 
-    enum string[] parameterNames = [ParameterIdentifierTuple!T];
-    auto valueGenerator = RndValueGen!(parameterNames, Parameters!T)(&rnd);
+    enum string[] parameterNames = [ParameterIdentifierTuple!Func];
+    auto valueGenerator = RndValueGen!(parameterNames, Parameters!Func)(&rnd);
 
     result.test = Benchmark(opts.funcname, opts.maxRounds, opts.filename);
 	bool continueT = result.test.timeSpend <= opts.duration
 			&& result.test.curRound < opts.maxRounds;
 
-	enum aliasSNotNull = __traits(compiles, S(valueGenerator.values));
-	pragma(msg, aliasSNotNull);
+	enum aliasSNotNull = __traits(compiles, Baseline(valueGenerator.values));
 
 	static if(aliasSNotNull) {
-		writeln(opts.funcname ~ "__S");
     	result.baseline = Benchmark(opts.funcname ~ "_Baseline", opts.maxRounds, 
 				opts.filename);
 		bool continueS = result.baseline.timeSpend <= opts.duration
 				&& result.baseline.curRound < opts.maxRounds;
 	} else {
-		writeln(opts.funcname ~ "__Not_S");
-		bool continueS = true;
+		const bool continueS = true;
 	}
 
     while (continueT && continueS)
     {
         valueGenerator.genValues();
-		benchmarkImpl!(T)(opts, result.test, valueGenerator);
+		benchmarkImpl!(Func)(opts, result.test, valueGenerator);
 
 		continueT = result.test.timeSpend <= opts.duration
 			&& result.test.curRound < opts.maxRounds;
 
 		static if(aliasSNotNull) {
-			benchmarkImpl!(S)(opts, result.baseline, valueGenerator);
+			benchmarkImpl!(Baseline)(opts, result.baseline, valueGenerator);
 			continueS = result.baseline.timeSpend <= opts.duration
 				&& result.baseline.curRound < opts.maxRounds;
 		}
@@ -778,7 +799,7 @@ BenchmarkResult benchmark(alias T, alias S)(const ref BenchmarkOptions opts)
 }
 
 /// Ditto
-void benchmark(alias T, alias S = null)(string funcname = "", string filename = __FILE__)
+BenchmarkResult benchmark(alias T, alias S = null)(string funcname = "", string filename = __FILE__)
 {
     import std.string : empty;
 
@@ -786,16 +807,16 @@ void benchmark(alias T, alias S = null)(string funcname = "", string filename = 
         funcname.empty ? fullyQualifiedName!T : funcname
     );
     opt.filename = filename;
-    benchmark!(T,S)(opt);
+    return benchmark!(T,S)(opt);
 }
 
 /// Ditto
-void benchmark(alias T, alias S = null)(Duration maxRuntime, string filename = __FILE__)
+BenchmarkResult benchmark(alias T, alias S = null)(Duration maxRuntime, string filename = __FILE__)
 {
     auto opt = BenchmarkOptions(fullyQualifiedName!T);
     opt.filename = filename;
     opt.duration = maxRuntime;
-    benchmark!(T,S)(opt);
+    return benchmark!(T,S)(opt);
 }
 
 /// Ditto
@@ -870,6 +891,7 @@ unittest
 unittest
 {
     import core.thread : Thread;
+	import std.stdio;
 
 	void superSlow(int a, Gen!(int, -10, 10) b)
 	{
@@ -883,7 +905,8 @@ unittest
 	    doNotOptimizeAway(a);
 	}
 
-    benchmark!(superSlow,superSlowBaseline)();
+    auto rslt = benchmark!(superSlow,superSlowBaseline)();
+	writeln(rslt);
 }
 
 unittest // test that the function parameter names are correct
