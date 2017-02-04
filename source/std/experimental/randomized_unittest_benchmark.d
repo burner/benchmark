@@ -912,12 +912,12 @@ unittest
 unittest // test that the function parameter names are correct
 {
 	import std.exception : assertThrown;
-    static int failingFun(int a, string b)
+    static void failingFun(int a, string b)
     {
         throw new Exception("Hello");
     }
 
-    static int failingFun2(int a, string b)
+    static void failingFun2(int a, string b)
     {
 		assert(false);
     }
