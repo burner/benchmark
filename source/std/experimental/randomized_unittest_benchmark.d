@@ -10,6 +10,8 @@ module std.experimental.randomized_unittest_benchmark;
 debug import std.experimental.logger;
 import std.container.array : Array;
 
+__EOF__
+
 
 /// The following examples show an overview of the given functionalities.
 unittest
@@ -569,14 +571,16 @@ function accepting $(D T...).
 */
 struct RndValueGen(T...)
 {
-    /* $(D Values) is a collection of $(D Gen) types created through
-    $(D ParameterToGen) of passed $(T ...).
-    */
-    alias Values = staticMap!(ParameterToGen, T[1 .. $]);
-    /// Ditto
-    Values values;
+	static if(T.length > 0) {
+    	/* $(D Values) is a collection of $(D Gen) types created through
+    	$(D ParameterToGen) of passed $(T ...).
+    	*/
+    	alias Values = staticMap!(ParameterToGen, T[1 .. $]);
+    	/// Ditto
+    	Values values;
 
-    string[] parameterNames = T[0];
+    	string[] parameterNames = T[0];
+	}
 
     /* The constructor accepting the required random number generator.
     Params:
@@ -597,20 +601,24 @@ struct RndValueGen(T...)
     */
     void genValues()
     {
-        foreach (ref it; this.values)
-        {
-            it.gen(*this.rnd);
-        }
+		static if(T.length > 0) {
+			foreach (ref it; this.values)
+			{
+				it.gen(*this.rnd);
+			}
+		}
     }
 
     void toString(scope void delegate(const(char)[]) sink)
     {
-        import std.format : formattedWrite;
+		static if(T.length > 0) {
+			import std.format : formattedWrite;
 
-        foreach (idx, ref it; values)
-        {
-            formattedWrite(sink, "'%s' = %s ", parameterNames[idx], it);
-        }
+			foreach (idx, ref it; values)
+			{
+				formattedWrite(sink, "'%s' = %s ", parameterNames[idx], it);
+			}
+		}
     }
 }
 
@@ -629,6 +637,13 @@ unittest
     }
 
     fun(generator.values);
+}
+
+unittest
+{
+    auto rnd = Random(1337);
+    auto generator = RndValueGen!()(&rnd);
+    generator.genValues();
 }
 
 unittest
@@ -835,7 +850,7 @@ bool benchmarkImpl(alias T, Val)(const ref BenchmarkOptions opts,
    bench.start();
    try
    {
-       T(val.values);
+       cast(void)T(val.values);
    }
    catch (Throwable t)
    {
