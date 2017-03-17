@@ -40,7 +40,7 @@ benchmarking functions sometimes include computing values that are not
 actually used, this function allows use to force the compiler not to remove
 the code that is benchmarked.
 */
-void doNotOptimizeAway(T...)(ref T t)
+void doNotOptimizeAway(T...)(auto ref T t)
 {
     foreach (ref it; t)
     {
@@ -63,24 +63,20 @@ struct Benchmark {
 	import std.container.array : Array;
 	import core.time : ClockType, Duration, MonoTimeImpl;
 
+	/* the name of the benchmark */
+    string funcname; 
 	/* the times it took to execute the function */
     Array!(Duration) ticks; 
-	/* the number of times the functions is supposed to be
-   	executed */
-    const(size_t) maxRounds; 
 	/* the number of rounds run */
     size_t curRound = 0; 
 	/* overall time spend running the benchmark function */
     Duration timeSpend;
-	/* the maximum time the benchmark should take*/
-    const(Duration) maxTime;
 	/* the time the benchmark started */
     MonoTimeImpl!(ClockType.precise) startTime;
 
-	this(size_t maxRounds, Duration maxTime) {
-		this.maxRounds = maxRounds;
-		this.maxTime = maxTime;
-		this.ticks.reserve(this.maxRounds);
+	this(size_t maxRounds, string funcname) {
+		this.funcname = funcname;
+		this.ticks.reserve(maxRounds);
 	}
 
     /** A call to this method will start the time taking process */
@@ -100,13 +96,4 @@ struct Benchmark {
         this.ticks.insertBack(dur);
         ++this.curRound;
     }
-
-	bool finished() const {
-		if(this.maxTime == Duration.zero()) {
-			return this.curRound >= this.maxRounds;
-		} else {
-			return this.curRound >= this.maxRounds 
-				|| this.timeSpend >= this.maxTime;
-		}
-	}
 }

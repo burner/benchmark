@@ -1,5 +1,8 @@
 module execution;
 
+import std.container.array : Array;
+
+import benchmarkmodule : Benchmark;
 
 struct BenchmarkOptions {
 	import core.time : Duration;
@@ -12,69 +15,129 @@ struct BenchmarkOptions {
     const(Duration) maxTime;
 	/* a seed value for the random number generator */
 	const(uint) seed;
+
+	this(string name, size_t maxRounds, Duration maxTime, uint seed) {
+		this.name = name;
+		this.maxRounds = maxRounds;
+		this.maxTime = maxTime;
+		this.seed = seed;
+	}
 }
 
-struct BenchmarkResult {
-	import core.time : Duration;
-	import std.container.array : Array;
-	/* where to write the benchmark result to */
-    string filename; 
-	/* the name of the benchmark */
-    string funcname; 
-	/* the number of times the functions was run */
-	size_t runs;
-	/* the duration the benchmark was run */
-    Duration maxTime;
-	/* the times it took to execute the function */
-    Array!(Duration) ticks; 
+bool realExecuter(alias Fun, Values)(ref BenchmarkOptions options, 
+		ref Benchmark bench, ref Values values) 
+{
+	bench.start();
+	static if(is(typeof(Fun) == void)) {
+		Fun(values.values);
+	} else {
+		import benchmarkmodule : doNotOptimizeAway;
+		doNotOptimizeAway(Fun(values.values));
+	}
+	bench.stop();
+	bench.curRound++;
+
+	return bench.curRound > options.maxRounds 
+		|| bench.timeSpend > options.maxTime;
 }
 
-template fillBenchmarkResult(Funcs...) if(Funcs.length > 1) {
-	void fill(BenchmarkResult[] bmr) {
-		import std.traits : fullyQualifiedName;
-		bmr[0].funcname = fullyQualifiedName!(Funcs[0]);
-		
-		alias rest = fillBenchmarkResult!(Funcs[1 .. $]);
-		rest.fill(bmr[1 .. $]);
-	}	
-}
+template executeImpl(Funcs...) if(Funcs.length == 1) {
+	bool impl(Values)(BenchmarkOptions options, 
+			Array!(Benchmark).Range benchmarks, ref Values values) 
+	{
+		return realExecuter!(Funcs[0])(options, benchmarks[0], values);
+	}
+}	
 
-template fillBenchmarkResult(Funcs...) if(Funcs.length == 1) {
-	void fill(BenchmarkResult[] bmr) {
-		import std.traits : fullyQualifiedName;
-		bmr[0].funcname = fullyQualifiedName!(Funcs[0]);
+template executeImpl(Funcs...) if(Funcs.length > 1) {
+	bool impl(Values)(BenchmarkOptions options, 
+			Array!(Benchmark).Range benchmarks, ref Values values) 
+	{
+		bool rslt = realExecuter!(Funcs[0])(options, benchmarks[0], values);
+
+		alias tail = executeImpl!(Funcs[1 .. $]);
+		rslt = rslt || tail.impl(options, benchmarks[1 .. $], values);
+		return rslt;
 	}
 }
 
 template benchmark(Funcs...) {
+	void initBenchmarks(ref Array!Benchmark benchmarks,
+			ref const(BenchmarkOptions) options) 
+	{
+		import std.traits : fullyQualifiedName;
+		for(size_t i = 0; i < Funcs.length; ++i) {
+			benchmarks.insertBack( 
+				Benchmark(
+					options.maxRounds, 
+					fullyQualifiedName!(Funcs[0])
+				)
+			);
+		}
+	}
 
-	BenchmarkResult[] execute() {
+	Array!Benchmark execute() {
+		import core.time : dur;
+		auto options = BenchmarkOptions("", 2000, dur!"seconds"(5), 1337);
+		return execute(options);
+	}
+
+	Array!Benchmark execute(BenchmarkOptions options) {
 		import std.random : Random;
 		import std.stdio;
 		import std.traits : ParameterIdentifierTuple, Parameters;
 
-		import benchmarkmodule : Benchmark;
 		import valuegenerators;
 
-		BenchmarkResult[] rslt = new BenchmarkResult[Funcs.length];
-		alias filler = fillBenchmarkResult!(Funcs);
-		filler.fill(rslt);
+		Array!Benchmark benchmarks;
+		initBenchmarks(benchmarks, options);
 
-    	auto rnd = Random(1337);
+    	auto rnd = Random(options.seed);
 
     	enum parameterNames = [ParameterIdentifierTuple!(Funcs[0])];
     	auto valueGenerator = RndValueGen!(parameterNames, Parameters!(Funcs[0]))(&rnd);
 
-		writefln("%s", rslt);
+		bool condition = false;
+		while(!condition) {
+        	valueGenerator.genValues();
+			alias exe = executeImpl!(Funcs);
+			condition = exe.impl(options, benchmarks[], valueGenerator);
+		}
 
-		Benchmark[Funcs.length] benchmarks;
-		return rslt;
+		writefln("%(%s\n%)", benchmarks[]);
+
+		return benchmarks;
 	}	
 }
 
+bool fun1(uint i) { 
+	static int c;
+	//writefln("c %s %d", c++, i);
+	for(uint j = 2; j < i; ++j) {
+		if(i % j == 0) {
+			return false;
+		}
+	}
+	return false;
+}
+
 unittest {
-	void fun1() { }
-	void delegate() fun2 = () {};
+	import core.time : dur;
+	import printer;
+
+	bool delegate(uint i) fun2 = (uint i) {
+		static int c;
+		//writefln("d %s %d", c++, i);
+		if(i == 2) return false;
+		for(uint j = 3; j < i/2; j+=3) {
+			if(i % j == 0) {
+				return false;
+			}
+		}
+		return true;
+	};
+	auto opt = BenchmarkOptions("", 10, dur!"seconds"(4), 1338);
 	alias bench = benchmark!(fun1,fun2);
-	auto rslt = bench.execute();
+	auto rslt = bench.execute(opt);
+	stdoutPrinter(rslt);
 }
