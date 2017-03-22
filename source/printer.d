@@ -26,16 +26,15 @@ void stdoutPrinter(Array!Benchmark benchs) {
 		sort(it.ticks[]);
 	}
 
-	writefln("Quantils: %10.2f%15.2f%15.2f%15.2f%15.2f",
-		   	0.01, 0.25, 0.5, 0.75, 0.99);
+	auto mst = medianStopWatchTime();
+	writefln("Median Duration to start and stop StopWatch: %2d hnsecs", mst);
+	auto qu = [0.01, 0.25, 0.5, 0.75, 0.99];
 	foreach(ref it; benchs) {
-		writefln("%80s", it.funcname);
-		writefln("     %15.11f%15.11f%15.11f%15.11f%15.11f",
-			getQuantilTick(it.ticks, 0.01).total!("hnsecs")() * 1_000_000.0,
-			getQuantilTick(it.ticks, 0.25).total!("hnsecs")() * 1_000_000.0,
-			getQuantilTick(it.ticks, 0.5).total!("hnsecs")() * 1_000_000.0,
-			getQuantilTick(it.ticks, 0.75).total!("hnsecs")() * 1_000_000.0,
-			getQuantilTick(it.ticks, 0.99).total!("hnsecs")() * 1_000_000.0
-		);
+		writefln("Function: %44s", it.funcname);
+		foreach(q; qu) {
+			writefln("Quantil %3.2f: %33d hnsecs", q, 
+				getQuantilTick(it.ticks, q).total!("hnsecs")()
+			);
+		}
 	}
 }

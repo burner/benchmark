@@ -4,7 +4,7 @@ module benchmarkmodule;
 how long $(D MonoTimeImpl!(ClockType.precise).currTime) takes to return
 the current time.
 */
-private auto medianStopWatchTime()
+auto medianStopWatchTime()
 {
     import core.time;
     import std.algorithm : sort;
