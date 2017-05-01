@@ -1,8 +1,8 @@
-module execution;
+module randomizedbenchmark.execution;
 
 import std.container.array : Array;
 
-import benchmarkmodule : Benchmark;
+import randomizedbenchmark.benchmark : Benchmark;
 
 struct BenchmarkOptions {
 	import core.time : Duration;
@@ -31,7 +31,7 @@ bool realExecuter(alias Fun, Values)(ref BenchmarkOptions options,
 	static if(is(typeof(Fun) == void)) {
 		Fun(values.values);
 	} else {
-		import benchmarkmodule : doNotOptimizeAway;
+		import randomizedbenchmark.benchmark : doNotOptimizeAway;
 		doNotOptimizeAway(Fun(values.values));
 	}
 	bench.stop();
@@ -84,10 +84,9 @@ template benchmark(Funcs...) {
 
 	Array!Benchmark execute(BenchmarkOptions options) {
 		import std.random : Random;
-		import std.stdio;
 		import std.traits : ParameterIdentifierTuple, Parameters;
 
-		import valuegenerators;
+		import randomizedbenchmark.valuegenerators;
 
 		Array!Benchmark benchmarks;
 		initBenchmarks(benchmarks, options);
@@ -95,7 +94,10 @@ template benchmark(Funcs...) {
     	auto rnd = Random(options.seed);
 
     	enum parameterNames = [ParameterIdentifierTuple!(Funcs[0])];
-    	auto valueGenerator = RndValueGen!(parameterNames, Parameters!(Funcs[0]))(&rnd);
+    	auto valueGenerator = RndValueGen!(
+				parameterNames, 
+				Parameters!(Funcs[0])
+			)(&rnd);
 
 		bool condition = false;
 		while(!condition) {
@@ -104,30 +106,30 @@ template benchmark(Funcs...) {
 			condition = exe.impl(options, benchmarks[], valueGenerator);
 		}
 
-		writefln("%(%s\n%)", benchmarks[]);
-
 		return benchmarks;
 	}	
 }
 
-bool fun1(uint i) { 
-	static int c;
-	//writefln("c %s %d", c++, i);
-	for(uint j = 2; j < i; ++j) {
-		if(i % j == 0) {
-			return false;
+version(unittest) {
+	private bool fun1(uint i) { 
+		static int c;
+		//writefln("c %s %d", c++, i);
+		for(uint j = 2; j < i; ++j) {
+			if(i % j == 0) {
+				return false;
+			}
 		}
+		return false;
 	}
-	return false;
 }
 
 unittest {
 	import core.time : dur;
-	import printer;
+	import randomizedbenchmark.printer;
 
+	int c;
 	bool delegate(uint i) fun2 = (uint i) {
-		static int c;
-		//writefln("d %s %d", c++, i);
+		++c;
 		if(i == 2) return false;
 		for(uint j = 3; j < i/2; j+=3) {
 			if(i % j == 0) {
@@ -139,5 +141,39 @@ unittest {
 	auto opt = BenchmarkOptions("", 10, dur!"seconds"(4), 1338);
 	alias bench = benchmark!(fun1,fun2);
 	auto rslt = bench.execute(opt);
+	assert(c > 0);
+	stdoutPrinter(rslt);
+}
+
+unittest {
+	import core.time : dur;
+	import randomizedbenchmark.printer;
+	import randomizedbenchmark.valuegenerators;
+
+	class DummyClass {
+		int c;
+
+		bool fun(ulong i) {
+			import std.stdio;
+			this.c++;
+			if(i == 2) return false;
+			for(long j = 3; j < i/2; j+=3) {
+				if(i % j == 0) {
+					return false;
+				}
+			}
+			return true;
+		}
+	}
+
+	auto c = new DummyClass();
+	auto del = delegate(Gen!(ulong,0,1024) i) {
+		return c.fun(i);
+	};
+
+	auto opt = BenchmarkOptions("", 10, dur!"seconds"(3), 1333);
+	alias bench = benchmark!(del);
+	auto rslt = bench.execute(opt);
+	assert(c.c > 0);
 	stdoutPrinter(rslt);
 }

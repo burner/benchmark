@@ -1,10 +1,10 @@
-module benchmarkmodule;
+module randomizedbenchmark.benchmark;
 
 /* This function used $(D MonoTimeImpl!(ClockType.precise).currTime) to time
 how long $(D MonoTimeImpl!(ClockType.precise).currTime) takes to return
 the current time.
 */
-auto medianStopWatchTime()
+long medianStopWatchTime()
 {
     import core.time;
     import std.algorithm : sort;
@@ -26,10 +26,10 @@ auto medianStopWatchTime()
     return times[$ / 2].total!"hnsecs";
 }
 
+/// Ditto
 unittest {
-    import std.stdio : writefln;
-	auto mst = medianStopWatchTime();
-	writefln("mst %s", mst);
+	long mst = medianStopWatchTime();
+	doNotOptimizeAway(mst);
 }
 
 /** A function that makes sure that the passed parameters are not optimized
@@ -59,6 +59,8 @@ private void doNotOptimizeAwayImpl(void* p)
     }
 }
 
+/** $(D Benchmark) is the result of a benchmark.
+*/
 struct Benchmark {
 	import std.container.array : Array;
 	import core.time : ClockType, Duration, MonoTimeImpl;
@@ -74,6 +76,11 @@ struct Benchmark {
 	/* the time the benchmark started */
     MonoTimeImpl!(ClockType.precise) startTime;
 
+	/** The constructor of $(D Benchmark).
+	Params:
+		maxRounds = The maximal times the benchmark should be executed
+		funcname = The name of the function to benchmark
+	*/
 	this(size_t maxRounds, string funcname) {
 		this.funcname = funcname;
 		this.ticks.reserve(maxRounds);
