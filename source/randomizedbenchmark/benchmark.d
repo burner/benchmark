@@ -27,9 +27,10 @@ long medianStopWatchTime()
 }
 
 /// Ditto
-unittest {
-	long mst = medianStopWatchTime();
-	doNotOptimizeAway(mst);
+unittest
+{
+    long mst = medianStopWatchTime();
+    doNotOptimizeAway(mst);
 }
 
 /** A function that makes sure that the passed parameters are not optimized
@@ -61,30 +62,32 @@ private void doNotOptimizeAwayImpl(void* p)
 
 /** $(D Benchmark) is the result of a benchmark.
 */
-struct Benchmark {
-	import std.container.array : Array;
-	import core.time : ClockType, Duration, MonoTimeImpl;
+struct Benchmark
+{
+    import std.container.array : Array;
+    import core.time : ClockType, Duration, MonoTimeImpl;
 
-	/* the name of the benchmark */
-    string funcname; 
-	/* the times it took to execute the function */
-    Array!(Duration) ticks; 
-	/* the number of rounds run */
-    size_t curRound = 0; 
-	/* overall time spend running the benchmark function */
+    /* the name of the benchmark */
+    string funcname;
+    /* the times it took to execute the function */
+    Array!(Duration) ticks;
+    /* the number of rounds run */
+    size_t curRound = 0;
+    /* overall time spend running the benchmark function */
     Duration timeSpend;
-	/* the time the benchmark started */
+    /* the time the benchmark started */
     MonoTimeImpl!(ClockType.precise) startTime;
 
-	/** The constructor of $(D Benchmark).
+    /** The constructor of $(D Benchmark).
 	Params:
 		maxRounds = The maximal times the benchmark should be executed
 		funcname = The name of the function to benchmark
 	*/
-	this(size_t maxRounds, string funcname) {
-		this.funcname = funcname;
-		this.ticks.reserve(maxRounds);
-	}
+    this(size_t maxRounds, string funcname)
+    {
+        this.funcname = funcname;
+        this.ticks.reserve(maxRounds);
+    }
 
     /** A call to this method will start the time taking process */
     void start()

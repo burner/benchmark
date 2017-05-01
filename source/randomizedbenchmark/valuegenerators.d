@@ -65,8 +65,7 @@ struct Gen(T, T low, T high) if (isNumeric!T)
         }
         else
         {
-            formattedWrite(sink, "'%s' low = '%s' high = '%s'", this.value,
-                low, high);
+            formattedWrite(sink, "'%s' low = '%s' high = '%s'", this.value, low, high);
         }
     }
 
@@ -89,8 +88,8 @@ struct Gen(T, size_t low, size_t high) if (isSomeString!T)
         import std.format : format;
         import std.range : chain, iota;
         import std.algorithm : map, joiner, count;
-		import std.conv : to;
-		import std.array : array;
+        import std.conv : to;
+        import std.array : array;
 
         Gen!(T, low, high).charSet = to!T(chain(iota(0x21,
             0x7E).map!(a => to!T(cast(dchar) a)), iota(0xA1,
@@ -104,7 +103,7 @@ struct Gen(T, size_t low, size_t high) if (isSomeString!T)
         static assert(low <= high);
         import std.range : drop;
         import std.array : front, appender;
-		import std.utf : byDchar;
+        import std.utf : byDchar;
 
         auto app = appender!T();
         app.reserve(high);
@@ -134,8 +133,7 @@ struct Gen(T, size_t low, size_t high) if (isSomeString!T)
         }
         else
         {
-            formattedWrite(sink, "'%s' low = '%s' high = '%s'", this.value,
-                low, high);
+            formattedWrite(sink, "'%s' low = '%s' high = '%s'", this.value, low, high);
         }
     }
 
@@ -148,7 +146,7 @@ unittest
 
     import std.range : iota;
     import std.array : empty;
-	import std.meta : aliasSeqOf;
+    import std.meta : aliasSeqOf;
 
     auto r = Random(1337);
     foreach (T; TypeTuple!(string, wstring, dstring))
@@ -184,8 +182,8 @@ struct GenASCIIString(size_t low, size_t high)
         import std.format : format;
         import std.range : chain, iota;
         import std.algorithm : map, joiner, count;
-		import std.conv : to;
-		import std.array : array;
+        import std.conv : to;
+        import std.array : array;
 
         GenASCIIString!(low, high).charSet = to!string(chain(iota(0x21,
             0x7E).map!(a => to!char(cast(dchar) a)).array));
@@ -195,7 +193,7 @@ struct GenASCIIString(size_t low, size_t high)
 
     void gen(ref Random gen)
     {
-		import std.array : appender;
+        import std.array : appender;
 
         auto app = appender!string();
         app.reserve(high);
@@ -225,8 +223,7 @@ struct GenASCIIString(size_t low, size_t high)
         }
         else
         {
-            formattedWrite(sink, "'%s' low = '%s' high = '%s'", this.value,
-                low, high);
+            formattedWrite(sink, "'%s' low = '%s' high = '%s'", this.value, low, high);
         }
     }
 
@@ -256,18 +253,19 @@ function accepting $(D T...).
 */
 struct RndValueGen(T...)
 {
-	static if(T.length > 0) {
-		import std.meta : staticMap;
+    static if (T.length > 0)
+    {
+        import std.meta : staticMap;
 
-    	/* $(D Values) is a collection of $(D Gen) types created through
+        /* $(D Values) is a collection of $(D Gen) types created through
     	$(D ParameterToGen) of passed $(T ...).
     	*/
-    	alias Values = staticMap!(ParameterToGen, T[1 .. $]);
-    	/// Ditto
-    	Values values;
+        alias Values = staticMap!(ParameterToGen, T[1 .. $]);
+        /// Ditto
+        Values values;
 
-    	string[] parameterNames = T[0];
-	}
+        string[] parameterNames = T[0];
+    }
 
     /* The constructor accepting the required random number generator.
     Params:
@@ -288,24 +286,26 @@ struct RndValueGen(T...)
     */
     void genValues()
     {
-		static if(T.length > 0) {
-			foreach (ref it; this.values)
-			{
-				it.gen(*this.rnd);
-			}
-		}
+        static if (T.length > 0)
+        {
+            foreach (ref it; this.values)
+            {
+                it.gen(*this.rnd);
+            }
+        }
     }
 
     void toString(scope void delegate(const(char)[]) sink)
     {
-		static if(T.length > 0) {
-			import std.format : formattedWrite;
+        static if (T.length > 0)
+        {
+            import std.format : formattedWrite;
 
-			foreach (idx, ref it; values)
-			{
-				formattedWrite(sink, "'%s' = %s ", parameterNames[idx], it);
-			}
-		}
+            foreach (idx, ref it; values)
+            {
+                formattedWrite(sink, "'%s' = %s ", parameterNames[idx], it);
+            }
+        }
     }
 }
 
@@ -313,8 +313,7 @@ struct RndValueGen(T...)
 unittest
 {
     auto rnd = Random(1337);
-    auto generator = RndValueGen!(["i", "f"], Gen!(int, 0, 10), Gen!(float,
-        0.0, 10.0))(&rnd);
+    auto generator = RndValueGen!(["i", "f"], Gen!(int, 0, 10), Gen!(float, 0.0, 10.0))(&rnd);
     generator.genValues();
 
     static fun(int i, float f)
@@ -342,8 +341,7 @@ unittest
     }
 
     auto rnd = Random(1337);
-    auto generator = RndValueGen!(["i", "f"], Gen!(int, 0, 10), Gen!(float,
-        0.0, 10.0))(&rnd);
+    auto generator = RndValueGen!(["i", "f"], Gen!(int, 0, 10), Gen!(float, 0.0, 10.0))(&rnd);
 
     generator.genValues();
     foreach (i; 0 .. 1000)
@@ -357,7 +355,8 @@ already a $(D Gen) or no $(D Gen) for given $(D T) is available.
 */
 template ParameterToGen(T)
 {
-	import std.traits : isIntegral, isFloatingPoint, isSomeString;
+    import std.traits : isIntegral, isFloatingPoint, isSomeString;
+
     static if (isGen!T)
         alias ParameterToGen = T;
     else static if (isIntegral!T)
@@ -389,11 +388,10 @@ unittest
 
 unittest
 {
-	import std.meta : AliasSeq, staticMap;
+    import std.meta : AliasSeq, staticMap;
 
     foreach (T; AliasSeq!(byte, ubyte, ushort, short, uint, int, ulong, long,
-            float, double, real, string, wstring,
-            dstring))
+            float, double, real, string, wstring, dstring))
     {
         alias TP = staticMap!(ParameterToGen, T);
         static assert(isGen!TP);

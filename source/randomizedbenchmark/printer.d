@@ -15,14 +15,14 @@ private Duration getQuantilTick(A)(const auto ref A ticks, double q) pure @safe
     }
     else
     {
-		if (idx == 0) 
-		{
-        	return ticks[idx];
-		} 
-		else 
-		{
-        	return (ticks[idx] + ticks[idx - 1]) / 2;
-		}
+        if (idx == 0)
+        {
+            return ticks[idx];
+        }
+        else
+        {
+            return (ticks[idx] + ticks[idx - 1]) / 2;
+        }
     }
 }
 
@@ -35,31 +35,38 @@ Params:
 	quantils = The quantils to group the benchmarks results by, by default the
 				quantils are $(D [0.01, 0.25, 0.5, 0.75, 0.99])
 */
-void stdoutPrinter(Array!Benchmark benchs, double[] quantils) {
-	import std.stdio : writefln;
-	import std.algorithm.sorting : sort;
-	version(unittest) {
-		foreach(it; quantils) {
-			assert(it <= 1.0, "Quantils must be less equal to 1.0");
-		}
-	}
-	foreach(ref it; benchs) {
-		sort(it.ticks[]);
-	}
+void stdoutPrinter(Array!Benchmark benchs, double[] quantils)
+{
+    import std.stdio : writefln;
+    import std.algorithm.sorting : sort;
 
-	auto mst = medianStopWatchTime();
-	writefln("Median Duration to start and stop StopWatch: %2d hnsecs", mst);
-	foreach(ref it; benchs) {
-		writefln("Function: %44s", it.funcname);
-		foreach(q; quantils) {
-			writefln("Quantil %3.2f: %33d hnsecs", q, 
-				getQuantilTick(it.ticks, q).total!("hnsecs")()
-			);
-		}
-	}
+    version (unittest)
+    {
+        foreach (it; quantils)
+        {
+            assert(it <= 1.0, "Quantils must be less equal to 1.0");
+        }
+    }
+    foreach (ref it; benchs)
+    {
+        sort(it.ticks[]);
+    }
+
+    auto mst = medianStopWatchTime();
+    writefln("Median Duration to start and stop StopWatch: %2d hnsecs", mst);
+    foreach (ref it; benchs)
+    {
+        writefln("Function: %44s", it.funcname);
+        foreach (q; quantils)
+        {
+            writefln("Quantil %3.2f: %33d hnsecs", q, getQuantilTick(it.ticks,
+                q).total!("hnsecs")());
+        }
+    }
 }
 
 /// Ditto
-void stdoutPrinter(Array!Benchmark benchs) {
-	stdoutPrinter(benchs, [0.01, 0.25, 0.5, 0.75, 0.99]);
+void stdoutPrinter(Array!Benchmark benchs)
+{
+    stdoutPrinter(benchs, [0.01, 0.25, 0.5, 0.75, 0.99]);
 }
