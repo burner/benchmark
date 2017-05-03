@@ -53,3 +53,23 @@ unittest {
     auto result = bench.execute();
 	stdoutPrinter(result);
 }
+
+/** Ditto
+Each benchmark is executed with some properties, this properties can be
+modifed by passing an instance of $(D BenchmarkOptions) to the execute method
+as shown below.
+*/
+unittest
+{
+    import core.time : dur;
+
+	auto options = BenchmarkOptions(
+		"customName", // A custom name for the benchmark
+		100, // The maximal rounds the function to benchmark should be run
+		dur!"seconds"(4), // The maximal time the function to benchmark should run
+		43523, // A seed to the random source that generates test data
+	);
+
+    alias bench = benchmark!(sumOfDivisors);
+    auto result = bench.execute(options);
+}

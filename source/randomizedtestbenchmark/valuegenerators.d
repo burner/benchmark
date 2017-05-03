@@ -29,13 +29,13 @@ unittest
 }
 
 /** A $(D Gen) type that generates character values. */
-struct Gen(T) if (isSomeChar!T)
+struct Gen(T, T low = 0, T high = T.max) if (isSomeChar!T)
 {
     T value;
 
     void gen(ref Random gen)
     {
-        this.value = uniform!(T)();
+        this.value = uniform!("[]", T)(low, high);
     }
 
     ref T opCall()
@@ -43,10 +43,12 @@ struct Gen(T) if (isSomeChar!T)
         return this.value;
     }
 
-    void toString(scope void delegate(const(char)[]) sink)
+    void toString(scope void delegate(const(char)[]) sink) const
     {
         import std.format : formattedWrite;
-        formattedWrite(sink, "'%s'", this.value);
+        formattedWrite(sink, "'%s' low = '%s' high = '%s'", this.value, low, 
+			high
+		);
     }
 
     alias opCall this;
@@ -55,7 +57,7 @@ struct Gen(T) if (isSomeChar!T)
 /** A $(D Gen) type that generates numeric values between the values of the
 template parameter $(D low) and $(D high) for a numeric type $(D T).
 */
-struct Gen(T, T low, T high) if (isNumeric!T)
+struct Gen(T, T low = 0, T high = T.max) if (isNumeric!T)
 {
     T value;
 
@@ -70,7 +72,7 @@ struct Gen(T, T low, T high) if (isNumeric!T)
         return this.value;
     }
 
-    void toString(scope void delegate(const(char)[]) sink)
+    void toString(scope void delegate(const(char)[]) sink) const
     {
         import std.format : formattedWrite;
 
@@ -145,7 +147,7 @@ struct Gen(T, size_t low, size_t high) if (isSomeString!T)
         return this.value;
     }
 
-    void toString(scope void delegate(const(char)[]) sink)
+    void toString(scope void delegate(const(char)[]) sink) const
     {
         import std.format : formattedWrite;
 
@@ -235,7 +237,7 @@ struct GenASCIIString(size_t low, size_t high)
         return this.value;
     }
 
-    void toString(scope void delegate(const(char)[]) sink)
+    void toString(scope void delegate(const(char)[]) sink) const
     {
         import std.format : formattedWrite;
 
