@@ -107,3 +107,37 @@ struct Benchmark
         ++this.curRound;
     }
 }
+
+struct BenchmarkOptions
+{
+    import core.time : Duration;
+
+    /* the name of the benchmark */
+    const(string) name;
+    /* the number of times the functions is supposed to be
+   	executed */
+    const(size_t) maxRounds;
+    /* the maximum time the benchmark should take*/
+    const(Duration) maxTime;
+    /* a seed value for the random number generator */
+    const(uint) seed;
+
+    this(string name, size_t maxRounds, Duration maxTime, uint seed)
+    {
+        this.name = name;
+        this.maxRounds = maxRounds;
+        this.maxTime = maxTime;
+        this.seed = seed;
+    }
+}
+
+struct BenchmarkResult
+{
+	import std.container.array : Array;
+	import randomizedtestbenchmark.benchmark : Benchmark;
+	import randomizedtestbenchmark.execution : BenchmarkOptions;
+
+	BenchmarkOptions options;
+	Array!Benchmark results;
+}
+

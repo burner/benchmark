@@ -1,31 +1,7 @@
 module randomizedtestbenchmark.execution;
 
-import std.container.array : Array;
-
-import randomizedtestbenchmark.benchmark : Benchmark;
-
-struct BenchmarkOptions
-{
-    import core.time : Duration;
-
-    /* the name of the benchmark */
-    const(string) name;
-    /* the number of times the functions is supposed to be
-   	executed */
-    const(size_t) maxRounds;
-    /* the maximum time the benchmark should take*/
-    const(Duration) maxTime;
-    /* a seed value for the random number generator */
-    const(uint) seed;
-
-    this(string name, size_t maxRounds, Duration maxTime, uint seed)
-    {
-        this.name = name;
-        this.maxRounds = maxRounds;
-        this.maxTime = maxTime;
-        this.seed = seed;
-    }
-}
+import randomizedtestbenchmark.benchmark : Benchmark, BenchmarkOptions,
+	   BenchmarkResult;
 
 bool shouldBeStopped(const ref Benchmark benchmark,
 		const ref BenchmarkOptions options)
@@ -37,8 +13,10 @@ bool shouldBeStopped(const ref Benchmark benchmark,
 bool realExecuter(alias Fun, Values)(ref BenchmarkOptions options,
     ref Benchmark bench, ref Values values)
 {
+	import std.traits : ReturnType;
+
     bench.start();
-    static if (is(typeof(Fun) == void))
+    static if (is(ReturnType!(Fun) == void))
     {
         Fun(values.values);
     }
@@ -55,6 +33,8 @@ bool realExecuter(alias Fun, Values)(ref BenchmarkOptions options,
 
 template executeImpl(Funcs...) if (Funcs.length == 1)
 {
+	import std.container.array : Array;
+
     bool impl(Values)(BenchmarkOptions options, Array!(Benchmark).Range benchmarks,
         ref Values values)
     {
@@ -64,6 +44,8 @@ template executeImpl(Funcs...) if (Funcs.length == 1)
 
 template executeImpl(Funcs...) if (Funcs.length > 1)
 {
+	import std.container.array : Array;
+
     bool impl(Values)(BenchmarkOptions options, Array!(Benchmark).Range benchmarks,
         ref Values values)
     {
@@ -76,6 +58,8 @@ template executeImpl(Funcs...) if (Funcs.length > 1)
 
 template benchmark(Funcs...)
 {
+	import std.container.array : Array;
+
     void initBenchmarks(ref Array!Benchmark benchmarks, 
 			ref const(BenchmarkOptions) options)
     {
@@ -92,7 +76,7 @@ template benchmark(Funcs...)
         }
     }
 
-    Array!Benchmark execute()
+    BenchmarkResult execute()
     {
         import core.time : dur;
 
@@ -100,7 +84,7 @@ template benchmark(Funcs...)
         return execute(options);
     }
 
-    Array!Benchmark execute(BenchmarkOptions options)
+    BenchmarkResult execute(BenchmarkOptions options)
     {
         import std.random : Random;
         import std.traits : ParameterIdentifierTuple, Parameters;
@@ -126,7 +110,7 @@ template benchmark(Funcs...)
             condition = exe.impl(options, benchmarks[], valueGenerator);
         }
 
-        return benchmarks;
+		return BenchmarkResult(options, benchmarks);
     }
 }
 
@@ -157,9 +141,7 @@ unittest
         ++c;
         if (i == 2)
             return false;
-        for (uint j = 3;
-        j < i / 2;
-        j += 3)
+        for (uint j = 3; j < i / 2; j += 3)
         {
             if (i % j == 0)
             {
@@ -169,7 +151,7 @@ unittest
         return true;
     };
 
-    auto opt = BenchmarkOptions("", 10, dur!"seconds"(4), 1338);
+    auto opt = BenchmarkOptions("FastPrime", 10, dur!"seconds"(4), 1338);
     alias bench = benchmark!(fun1, fun2);
     auto rslt = bench.execute(opt);
     assert(c > 0);
@@ -212,7 +194,7 @@ unittest
         return tmp;
     };
 
-    auto opt = BenchmarkOptions("", 10, dur!"seconds"(3), 1333);
+    auto opt = BenchmarkOptions("ClassTest", 10, dur!"seconds"(3), 1333);
     alias bench = benchmark!(del);
     auto rslt = bench.execute(opt);
     assert(c.c > 0);

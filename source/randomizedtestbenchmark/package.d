@@ -25,7 +25,7 @@ uint sumOfDivisors(uint a)
 unittest
 {
     alias bench = benchmark!(sumOfDivisors);
-    auto result = bench.execute();
+    BenchmarkResult result = bench.execute();
 
 	/* $(D stdoutPrinter(result);)
 	this prints the results of the benchmark, by default the 0.01, 0.25, 0.50,
@@ -50,7 +50,7 @@ unittest {
 	};
 
     alias bench = benchmark!(d);
-    auto result = bench.execute();
+    BenchmarkResult result = bench.execute();
 	stdoutPrinter(result);
 }
 
@@ -71,5 +71,68 @@ unittest
 	);
 
     alias bench = benchmark!(sumOfDivisors);
-    auto result = bench.execute(options);
+    BenchmarkResult result = bench.execute(options);
+}
+
+/** Ditto
+Testing with random data can be done as shown in following example.
+In this example we create a function that tests std.string.indexOf.
+std.string.indexOf returns the index of the searched character in the passed
+string.
+*/
+unittest
+{
+	void forward(string randomString, char randomChar) {
+		import std.string : indexOf;
+		import std.format : format;
+
+		auto idx = indexOf(randomString, randomChar);
+		doNotOptimizeAway(idx);
+
+		debug
+		{
+			if (idx != -1) 
+			{
+				/*assert(randomString[idx] == randomChar,
+					format("%d randomString[idx](%x) != randomChar(%x)\n%s",
+						idx, randomString[idx], randomChar, randomString
+					)
+				);*/
+			}
+		}
+	}
+
+    alias bench = benchmark!(forward);
+    BenchmarkResult result = bench.execute();
+}
+
+/** Ditto
+Sometimes it is required to restrict the passed test data.
+The following example uses the $(D Gen) construct to create
+a random string with a length between 10 and 20 characters.
+*/
+unittest
+{
+	void forward(Gen!(string, 10, 20) randomString, char randomChar) {
+		import std.string : indexOf;
+		import std.format : format;
+
+		auto idx = indexOf(randomString, randomChar);
+		doNotOptimizeAway(idx);
+
+		debug
+		{
+			if (idx != -1) 
+			{
+				/*assert(randomString[idx] == randomChar,
+					format("%d randomString[idx](%x) != randomChar(%x)\n%s",
+						idx, randomString[idx], randomChar, randomString
+					)
+				);*/
+			}
+		}
+	}
+
+    alias bench = benchmark!(forward);
+    BenchmarkResult result = bench.execute();
 }

@@ -4,6 +4,7 @@ import core.time : Duration;
 import std.container.array : Array;
 
 import randomizedtestbenchmark.benchmark;
+import randomizedtestbenchmark.execution;
 
 private Duration getQuantilTick(A)(const auto ref A ticks, double q) pure @safe
 {
@@ -31,11 +32,11 @@ This functions prints the results qrouped into by quantils of all passed
 benchmarks.
 
 Params:
-	benchs = The benchmarks
+	benchs = The $(D BenchmarkResult)
 	quantils = The quantils to group the benchmarks results by, by default the
 				quantils are $(D [0.01, 0.25, 0.5, 0.75, 0.99])
 */
-void stdoutPrinter(Array!Benchmark benchs, double[] quantils)
+void stdoutPrinter(BenchmarkResult benchs, double[] quantils)
 {
     import std.stdio : writefln;
     import std.algorithm.sorting : sort;
@@ -47,14 +48,20 @@ void stdoutPrinter(Array!Benchmark benchs, double[] quantils)
             assert(it <= 1.0, "Quantils must be less equal to 1.0");
         }
     }
-    foreach (ref it; benchs)
+    foreach (ref it; benchs.results)
     {
         sort(it.ticks[]);
     }
 
+	writefln("Benchmark \"%s\" with maximal rounds \"%d\", "
+			~ "maximal duration \"%s\", and seed \"%d\".",
+			benchs.options.name, benchs.options.maxRounds, 
+			benchs.options.maxTime, benchs.options.seed
+	);
+
     auto mst = medianStopWatchTime();
-    writefln("Median Duration to start and stop StopWatch: %2d hnsecs", mst);
-    foreach (ref it; benchs)
+    writefln("Median duration to start and stop the StopWatch: %2d hnsecs", mst);
+    foreach (ref it; benchs.results)
     {
         writefln("Function: %44s run %d times", it.funcname, it.curRound);
         foreach (q; quantils)
@@ -66,7 +73,7 @@ void stdoutPrinter(Array!Benchmark benchs, double[] quantils)
 }
 
 /// Ditto
-void stdoutPrinter(Array!Benchmark benchs)
+void stdoutPrinter(BenchmarkResult benchs)
 {
     stdoutPrinter(benchs, [0.01, 0.25, 0.5, 0.75, 0.99]);
 }
