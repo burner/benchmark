@@ -136,3 +136,49 @@ unittest
     alias bench = benchmark!(forward);
     BenchmarkResult result = bench.execute();
 }
+
+/** Ditto
+$(D Gen) exists for all primitive types, but sometimes it is required to
+generate test data for custom data types. The following example demonstrates
+how to create a custom $(D Gen) element.
+*/
+unittest {
+	struct Foo {
+		string str;
+		char c;
+	}
+
+	struct Gen(T) if (is(T == Foo))
+	{
+		import std.random : Random;
+
+    	Foo value;
+
+    	void gen(ref Random gen)
+    	{
+			Gen!(string) str;
+			Gen!(char) c;
+
+			str.gen(gen);
+			c.gen(gen);
+
+			this.value = Foo(str(), c());
+		}
+
+    	ref Foo opCall()
+    	{
+    	    return this.value;
+    	}
+
+    	alias opCall this;
+	}
+
+	void customGenFunction(Gen!Foo foo) {
+		import std.string : indexOf;
+		auto idx = indexOf(foo.str, foo.c);
+		doNotOptimizeAway(idx);
+	}
+
+    alias bench = benchmark!(customGenFunction);
+    BenchmarkResult result = bench.execute();
+}
