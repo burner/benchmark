@@ -1,4 +1,4 @@
-module randomizedbenchmark.benchmark;
+module randomizedtestbenchmark.benchmark;
 
 /* This function used $(D MonoTimeImpl!(ClockType.precise).currTime) to time
 how long $(D MonoTimeImpl!(ClockType.precise).currTime) takes to return

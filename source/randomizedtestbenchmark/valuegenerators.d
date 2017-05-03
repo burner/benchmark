@@ -1,4 +1,4 @@
-module randomizedbenchmark.valuegenerators;
+module randomizedtestbenchmark.valuegenerators;
 
 import std.traits : isFloatingPoint, isNumeric, isSomeString;
 import std.random : Random, uniform;

@@ -1,8 +1,8 @@
-module randomizedbenchmark.execution;
+module randomizedtestbenchmark.execution;
 
 import std.container.array : Array;
 
-import randomizedbenchmark.benchmark : Benchmark;
+import randomizedtestbenchmark.benchmark : Benchmark;
 
 struct BenchmarkOptions
 {
@@ -37,7 +37,7 @@ bool realExecuter(alias Fun, Values)(ref BenchmarkOptions options,
     }
     else
     {
-        import randomizedbenchmark.benchmark : doNotOptimizeAway;
+        import randomizedtestbenchmark.benchmark : doNotOptimizeAway;
 
         doNotOptimizeAway(Fun(values.values));
     }
@@ -100,7 +100,7 @@ template benchmark(Funcs...)
         import std.random : Random;
         import std.traits : ParameterIdentifierTuple, Parameters;
 
-        import randomizedbenchmark.valuegenerators;
+        import randomizedtestbenchmark.valuegenerators;
 
         Array!Benchmark benchmarks;
         initBenchmarks(benchmarks, options);
@@ -145,7 +145,7 @@ version (unittest)
 unittest
 {
     import core.time : dur;
-    import randomizedbenchmark.printer;
+    import randomizedtestbenchmark.printer;
 
     int c;
     bool delegate(uint i) fun2 = (uint i) {
@@ -174,8 +174,8 @@ unittest
 unittest
 {
     import core.time : dur;
-    import randomizedbenchmark.printer;
-    import randomizedbenchmark.valuegenerators;
+    import randomizedtestbenchmark.printer;
+    import randomizedtestbenchmark.valuegenerators;
 
     class DummyClass
     {
@@ -201,7 +201,7 @@ unittest
 
     auto c = new DummyClass();
     auto del = delegate(Gen!(ulong, 0, 1024) i) {
-		import randomizedbenchmark.benchmark : doNotOptimizeAway;
+		import randomizedtestbenchmark.benchmark : doNotOptimizeAway;
         bool tmp = c.fun(i);
         doNotOptimizeAway(tmp);
         return tmp;

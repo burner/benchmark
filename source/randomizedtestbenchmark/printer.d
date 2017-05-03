@@ -1,9 +1,9 @@
-module randomizedbenchmark.printer;
+module randomizedtestbenchmark.printer;
 
 import core.time : Duration;
 import std.container.array : Array;
 
-import randomizedbenchmark.benchmark;
+import randomizedtestbenchmark.benchmark;
 
 private Duration getQuantilTick(A)(const auto ref A ticks, double q) pure @safe
 {
@@ -56,7 +56,7 @@ void stdoutPrinter(Array!Benchmark benchs, double[] quantils)
     writefln("Median Duration to start and stop StopWatch: %2d hnsecs", mst);
     foreach (ref it; benchs)
     {
-        writefln("Function: %44s", it.funcname);
+        writefln("Function: %44s run %d times", it.funcname, it.curRound);
         foreach (q; quantils)
         {
             writefln("Quantil %3.2f: %33d hnsecs", q, getQuantilTick(it.ticks,
