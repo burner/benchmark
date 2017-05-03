@@ -27,6 +27,13 @@ struct BenchmarkOptions
     }
 }
 
+bool shouldBeStopped(const ref Benchmark benchmark,
+		const ref BenchmarkOptions options)
+{
+    return benchmark.curRound > options.maxRounds 
+		|| benchmark.timeSpend > options.maxTime;
+}
+
 bool realExecuter(alias Fun, Values)(ref BenchmarkOptions options,
     ref Benchmark bench, ref Values values)
 {
@@ -42,9 +49,8 @@ bool realExecuter(alias Fun, Values)(ref BenchmarkOptions options,
         doNotOptimizeAway(Fun(values.values));
     }
     bench.stop();
-    bench.curRound++;
 
-    return bench.curRound > options.maxRounds || bench.timeSpend > options.maxTime;
+    return shouldBeStopped(bench, options);
 }
 
 template executeImpl(Funcs...) if (Funcs.length == 1)
@@ -62,10 +68,9 @@ template executeImpl(Funcs...) if (Funcs.length > 1)
         ref Values values)
     {
         bool rslt = realExecuter!(Funcs[0])(options, benchmarks[0], values);
-
         alias tail = executeImpl!(Funcs[1 .. $]);
-        rslt = rslt || tail.impl(options, benchmarks[1 .. $], values);
-        return rslt;
+		bool tailResult = tail.impl(options, benchmarks[1 .. $], values);
+        return rslt || tailResult;
     }
 }
 

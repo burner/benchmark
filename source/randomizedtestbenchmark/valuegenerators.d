@@ -1,6 +1,6 @@
 module randomizedtestbenchmark.valuegenerators;
 
-import std.traits : isFloatingPoint, isNumeric, isSomeString;
+import std.traits : isSomeChar, isFloatingPoint, isNumeric, isSomeString;
 import std.random : Random, uniform;
 
 /* Return $(D true) if the passed $(D T) is a $(D Gen) struct.
@@ -28,13 +28,35 @@ unittest
     static assert(isGen!(Gen!(int, 0, 10)));
 }
 
+/** A $(D Gen) type that generates character values. */
+struct Gen(T) if (isSomeChar!T)
+{
+    T value;
+
+    void gen(ref Random gen)
+    {
+        this.value = uniform!(T)();
+    }
+
+    ref T opCall()
+    {
+        return this.value;
+    }
+
+    void toString(scope void delegate(const(char)[]) sink)
+    {
+        import std.format : formattedWrite;
+        formattedWrite(sink, "'%s'", this.value);
+    }
+
+    alias opCall this;
+}
+
 /** A $(D Gen) type that generates numeric values between the values of the
 template parameter $(D low) and $(D high) for a numeric type $(D T).
 */
 struct Gen(T, T low, T high) if (isNumeric!T)
 {
-    alias Value = T;
-
     T value;
 
     void gen(ref Random gen)
@@ -355,12 +377,14 @@ already a $(D Gen) or no $(D Gen) for given $(D T) is available.
 */
 template ParameterToGen(T)
 {
-    import std.traits : isIntegral, isFloatingPoint, isSomeString;
+    import std.traits : isSomeChar, isIntegral, isFloatingPoint, isSomeString;
 
     static if (isGen!T)
         alias ParameterToGen = T;
     else static if (isIntegral!T)
         alias ParameterToGen = Gen!(T, T.min, T.max);
+    else static if (isSomeChar!T)
+        alias ParameterToGen = Gen!(T);
     else static if (isFloatingPoint!T)
         alias ParameterToGen = Gen!(T, T.min_normal, T.max);
     else static if (isSomeString!T)
