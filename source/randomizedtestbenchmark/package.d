@@ -140,40 +140,54 @@ unittest
 /** Ditto
 $(D Gen) exists for all primitive types, but sometimes it is required to
 generate test data for custom data types. The following example demonstrates
-how to create a custom $(D Gen) element.
+how to create a custom $(D FooGen) element.
 */
 unittest {
+	/* We have the type $(D Foo) which is just an aggregate of a $(D string)
+	   and a $(D c).
+	*/
 	struct Foo {
 		string str;
 		char c;
 	}
 
-	struct Gen(T) if (is(T == Foo))
+	/* $(D FooGen) is our $(D Foo) generator. In order to make a generator a
+	   type must have three properties.
+	   If must have a alias member called Type that is the type of the
+	   generated value.
+	   Additionally, it must have a method called $(gen) that takes a $(D
+	   std.random.Random) as $(D ref).
+	   Usually, this method is used to generate the $(I random) value.
+	   The last required property is that the generator must be implicitly be
+	   convertible to type Type.
+	   This is usually achieved by an $(alias this).
+	*/
+	static struct FooGen
 	{
 		import std.random : Random;
-
-    	Foo value;
-
-    	void gen(ref Random gen)
-    	{
+	
+		alias Type = Foo;
+		Foo value;
+	
+		void gen(ref Random gen)
+		{
 			Gen!(string) str;
 			Gen!(char) c;
-
+	
 			str.gen(gen);
 			c.gen(gen);
-
-			this.value = Foo(str(), c());
+	
+			this.value = Foo(str, c);
 		}
-
-    	ref Foo opCall()
-    	{
-    	    return this.value;
-    	}
-
-    	alias opCall this;
+	
+		alias value this;
 	}
 
-	void customGenFunction(Gen!Foo foo) {
+	// $(D isGen) is used to test if $(D FooGen) is a valid generator
+	static assert(isGen!(FooGen));
+
+	// Finally, $(D FooGen) can be used as expected
+	void customGenFunction(FooGen foo) {
 		import std.string : indexOf;
 		auto idx = indexOf(foo.str, foo.c);
 		doNotOptimizeAway(idx);

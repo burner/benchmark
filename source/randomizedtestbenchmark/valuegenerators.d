@@ -15,10 +15,24 @@ custom $(D Gen) is required.
 */
 template isGen(T)
 {
-    static if (is(T : Gen!(S), S...))
-        enum isGen = true;
-    else
-        enum isGen = false;
+	import std.random : Random;
+	import std.traits : Parameters, ParameterStorageClassTuple,
+		   ParameterStorageClass, isImplicitlyConvertible;
+
+	static if (__traits(hasMember, T, "Type")
+			&& __traits(hasMember, T, "gen")
+			&& Parameters!(__traits(getMember, T, "gen")).length == 1
+			&& is(Parameters!(__traits(getMember, T, "gen"))[0] == Random)
+			&& ParameterStorageClassTuple!(__traits(getMember, T, "gen")).length 
+				== 1
+			&& ParameterStorageClassTuple!(__traits(getMember, T, "gen"))[0]
+				== ParameterStorageClass.ref_
+			&& isImplicitlyConvertible!(T, __traits(getMember, T, "Type")))
+	{
+		enum isGen = true;
+	} else {
+		enum isGen = false;
+	}
 }
 
 ///
@@ -26,21 +40,20 @@ unittest
 {
     static assert(!isGen!int);
     static assert(isGen!(Gen!(int, 0, 10)));
+    static assert(isGen!(Gen!(float, 0, 10)));
+    static assert(isGen!(Gen!(string)));
+    static assert(isGen!(Gen!(string, 0, 10)));
 }
 
 /** A $(D Gen) type that generates character values. */
 struct Gen(T, T low = 0, T high = T.max) if (isSomeChar!T)
 {
+	alias Type = T;
     T value;
 
     void gen(ref Random gen)
     {
         this.value = uniform!("[]", T)(low, high);
-    }
-
-    ref T opCall()
-    {
-        return this.value;
     }
 
     void toString(scope void delegate(const(char)[]) sink) const
@@ -51,7 +64,7 @@ struct Gen(T, T low = 0, T high = T.max) if (isSomeChar!T)
 		);
     }
 
-    alias opCall this;
+    alias value this;
 }
 
 /** A $(D Gen) type that generates numeric values between the values of the
@@ -59,17 +72,13 @@ template parameter $(D low) and $(D high) for a numeric type $(D T).
 */
 struct Gen(T, T low = 0, T high = T.max) if (isNumeric!T)
 {
+	alias Type = T;
     T value;
 
     void gen(ref Random gen)
     {
         static assert(low <= high);
         this.value = uniform!("[]")(low, high, gen);
-    }
-
-    ref T opCall()
-    {
-        return this.value;
     }
 
     void toString(scope void delegate(const(char)[]) sink) const
@@ -93,18 +102,19 @@ struct Gen(T, T low = 0, T high = T.max) if (isNumeric!T)
         }
     }
 
-    alias opCall this;
+    alias value this;
 }
 
 /** A $(D Gen) type that generates unicode strings with a number of
 charatacters that is between template parameter $(D low) and $(D high).
 */
-struct Gen(T, size_t low, size_t high) if (isSomeString!T)
+struct Gen(T, size_t low = 0, size_t high = 30) if (isSomeString!T)
 {
+	alias Type = T;
+    T value;
+
     static T charSet;
     static immutable size_t numCharsInCharSet;
-
-    T value;
 
     static this()
     {
@@ -142,11 +152,6 @@ struct Gen(T, size_t low, size_t high) if (isSomeString!T)
         this.value = app.data;
     }
 
-    ref T opCall()
-    {
-        return this.value;
-    }
-
     void toString(scope void delegate(const(char)[]) sink) const
     {
         import std.format : formattedWrite;
@@ -157,11 +162,13 @@ struct Gen(T, size_t low, size_t high) if (isSomeString!T)
         }
         else
         {
-            formattedWrite(sink, "'%s' low = '%s' high = '%s'", this.value, low, high);
+            formattedWrite(sink, "'%s' low = '%s' high = '%s'", this.value, 
+				low, high
+			);
         }
     }
 
-    alias opCall this;
+    alias value this;
 }
 
 unittest
@@ -195,6 +202,8 @@ of ASCII character.
 */
 struct GenASCIIString(size_t low, size_t high)
 {
+	alias Type = string;
+
     static string charSet;
     static immutable size_t numCharsInCharSet;
 
@@ -232,11 +241,6 @@ struct GenASCIIString(size_t low, size_t high)
         this.value = app.data;
     }
 
-    ref string opCall()
-    {
-        return this.value;
-    }
-
     void toString(scope void delegate(const(char)[]) sink) const
     {
         import std.format : formattedWrite;
@@ -247,11 +251,13 @@ struct GenASCIIString(size_t low, size_t high)
         }
         else
         {
-            formattedWrite(sink, "'%s' low = '%s' high = '%s'", this.value, low, high);
+            formattedWrite(sink, "'%s' low = '%s' high = '%s'", this.value, 
+				low, high
+			);
         }
     }
 
-    alias opCall this;
+    alias value this;
 }
 
 unittest
@@ -263,8 +269,9 @@ unittest
     auto rnd = Random(1337);
 
     GenASCIIString!(5, 5) gen;
+	static assert(isGen!(typeof(gen)));
     gen.gen(rnd);
-    auto str = gen();
+    string str = gen;
 
     assert(!str.empty);
     assertNotThrown(validate(str));
@@ -337,7 +344,9 @@ struct RndValueGen(T...)
 unittest
 {
     auto rnd = Random(1337);
-    auto generator = RndValueGen!(["i", "f"], Gen!(int, 0, 10), Gen!(float, 0.0, 10.0))(&rnd);
+    auto generator = RndValueGen!(["i", "f"], Gen!(int, 0, 10), 
+			Gen!(float, 0.0, 10.0)
+		)(&rnd);
     generator.genValues();
 
     static fun(int i, float f)
@@ -365,7 +374,9 @@ unittest
     }
 
     auto rnd = Random(1337);
-    auto generator = RndValueGen!(["i", "f"], Gen!(int, 0, 10), Gen!(float, 0.0, 10.0))(&rnd);
+    auto generator = RndValueGen!(["i", "f"], Gen!(int, 0, 10), 
+			Gen!(float, 0.0, 10.0)
+		)(&rnd);
 
     generator.genValues();
     foreach (i; 0 .. 1000)
@@ -394,7 +405,7 @@ template ParameterToGen(T)
     else static if (is(T : GenASCIIString!(S), S...))
         alias ParameterToGen = T;
     else
-        static assert(false);
+        static assert(false, T.stringof);
 }
 
 ///
