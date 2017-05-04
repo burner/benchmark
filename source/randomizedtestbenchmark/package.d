@@ -52,6 +52,7 @@ unittest {
     alias bench = benchmark!(d);
     BenchmarkResult result = bench.execute();
 	stdoutPrinter(result);
+	gnuplotDataPrinter(result, "unittestbenchmark");
 }
 
 /** Ditto
