@@ -55,6 +55,26 @@ unittest {
 }
 
 /** Ditto
+Sometimes it is useful to compare multiple functions. To compare them properly
+you have to pass them the same parameters. The following example shows you to
+do that.
+*/
+unittest
+{
+	int fun(int a, int b) {
+		return a + b;
+	}
+
+	int fun2(int a, int b) {
+		return b + a;
+	}
+
+	// To test multiple functions with the same parameter just list them
+    alias bench = benchmark!(fun, fun2);
+    BenchmarkResult result = bench.execute();
+}
+
+/** Ditto
 Each benchmark is executed with some properties, this properties can be
 modifed by passing an instance of $(D BenchmarkOptions) to the execute method
 as shown below.
@@ -76,28 +96,22 @@ unittest
 
 /** Ditto
 Testing with random data can be done as shown in following example.
-In this example we create a function that tests std.string.indexOf.
-std.string.indexOf returns the index of the searched character in the passed
-string.
+In this example we create a function that tests std.algorithm.searching.find.
 */
 unittest
 {
 	void forward(string randomString, char randomChar) {
-		import std.string : indexOf;
-		import std.format : format;
+		import std.algorithm.searching : find;
+		import std.array : empty, front;
 
-		auto idx = indexOf(randomString, randomChar);
+		auto idx = find(randomString, randomChar);
 		doNotOptimizeAway(idx);
 
 		debug
 		{
-			if (idx != -1) 
+			if (!idx.empty) 
 			{
-				/*assert(randomString[idx] == randomChar,
-					format("%d randomString[idx](%x) != randomChar(%x)\n%s",
-						idx, randomString[idx], randomChar, randomString
-					)
-				);*/
+				assert(idx.front == randomChar);
 			}
 		}
 	}
@@ -114,21 +128,17 @@ a random string with a length between 10 and 20 characters.
 unittest
 {
 	void forward(Gen!(string, 10, 20) randomString, char randomChar) {
-		import std.string : indexOf;
-		import std.format : format;
+		import std.algorithm.searching : find;
+		import std.array : empty, front;
 
-		auto idx = indexOf(randomString, randomChar);
+		auto idx = find(randomString, randomChar);
 		doNotOptimizeAway(idx);
 
 		debug
 		{
-			if (idx != -1) 
+			if (!idx.empty) 
 			{
-				/*assert(randomString[idx] == randomChar,
-					format("%d randomString[idx](%x) != randomChar(%x)\n%s",
-						idx, randomString[idx], randomChar, randomString
-					)
-				);*/
+				assert(idx.front == randomChar);
 			}
 		}
 	}
@@ -167,6 +177,7 @@ unittest {
 		import std.random : Random;
 	
 		alias Type = Foo;
+
 		Foo value;
 	
 		void gen(ref Random gen)
