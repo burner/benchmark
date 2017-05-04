@@ -31,6 +31,6 @@ unittest
     alias bench = benchmark!(sumOfDivisors);
     BenchmarkResult result = bench.execute();
 
-	stdoutPrinter(result);
+    stdoutPrinter(result);
 }
 ```
