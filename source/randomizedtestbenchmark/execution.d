@@ -3,59 +3,13 @@ module randomizedtestbenchmark.execution;
 import randomizedtestbenchmark.benchmark : Benchmark, BenchmarkOptions,
 	   BenchmarkResult;
 
-bool shouldBeStopped(const ref Benchmark benchmark,
-		const ref BenchmarkOptions options)
-{
-    return benchmark.curRound > options.maxRounds 
-		|| benchmark.timeSpend > options.maxTime;
-}
+import std.container.array : Array;
 
-bool realExecuter(alias Fun, Values)(ref BenchmarkOptions options,
-    ref Benchmark bench, ref Values values)
-{
-	import std.traits : ReturnType;
-
-    bench.start();
-    static if (is(ReturnType!(Fun) == void))
-    {
-        Fun(values.values);
-    }
-    else
-    {
-        import randomizedtestbenchmark.benchmark : doNotOptimizeAway;
-
-        doNotOptimizeAway(Fun(values.values));
-    }
-    bench.stop();
-
-    return shouldBeStopped(bench, options);
-}
-
-template executeImpl(Funcs...) if (Funcs.length == 1)
-{
-	import std.container.array : Array;
-
-    bool impl(Values)(BenchmarkOptions options, Array!(Benchmark).Range benchmarks,
-        ref Values values)
-    {
-        return realExecuter!(Funcs[0])(options, benchmarks[0], values);
-    }
-}
-
-template executeImpl(Funcs...) if (Funcs.length > 1)
-{
-	import std.container.array : Array;
-
-    bool impl(Values)(BenchmarkOptions options, Array!(Benchmark).Range benchmarks,
-        ref Values values)
-    {
-        bool rslt = realExecuter!(Funcs[0])(options, benchmarks[0], values);
-        alias tail = executeImpl!(Funcs[1 .. $]);
-		bool tailResult = tail.impl(options, benchmarks[1 .. $], values);
-        return rslt || tailResult;
-    }
-}
-
+/** This template creates a benchmark object.
+$(D Funcs) is the list of callable things that should be benchmarks.
+The signatures of the elements of $(D Funcs) must be equals.
+After the benchmark is constructed it is executed by calling execute.
+*/
 template benchmark(Funcs...)
 {
 	import std.container.array : Array;
@@ -63,19 +17,14 @@ template benchmark(Funcs...)
     void initBenchmarks(ref Array!Benchmark benchmarks, 
 			ref const(BenchmarkOptions) options)
     {
-        import std.traits : fullyQualifiedName;
-
-        for (size_t i = 0; i < Funcs.length; ++i)
-        {
-            benchmarks.insertBack(
-				Benchmark(
-					options.maxRounds, 
-					fullyQualifiedName!(Funcs[0])
-				)
-			);
-        }
+		initBenchmarksImpl!(Funcs)(benchmarks, options);
     }
 
+	/** Start the benchmark process
+	Params:
+		options = The Options to use. By default the benchmark will run for 5
+		seconds or no more than 2000 rounds.
+	*/
     BenchmarkResult execute()
     {
         import core.time : dur;
@@ -84,6 +33,7 @@ template benchmark(Funcs...)
         return execute(options);
     }
 
+	/// Ditto
     BenchmarkResult execute(BenchmarkOptions options)
     {
         import std.random : Random;
@@ -114,20 +64,91 @@ template benchmark(Funcs...)
     }
 }
 
+private bool shouldBeStopped(const ref Benchmark benchmark,
+		const ref BenchmarkOptions options)
+{
+    return benchmark.curRound > options.maxRounds 
+		|| benchmark.timeSpend > options.maxTime;
+}
+
+private bool realExecuter(alias Fun, Values)(ref BenchmarkOptions options,
+    ref Benchmark bench, ref Values values)
+{
+	import std.traits : ReturnType;
+
+    bench.start();
+    static if (is(ReturnType!(Fun) == void))
+    {
+        Fun(values.values);
+    }
+    else
+    {
+        import randomizedtestbenchmark.benchmark : doNotOptimizeAway;
+
+        doNotOptimizeAway(Fun(values.values));
+    }
+    bench.stop();
+
+    return shouldBeStopped(bench, options);
+}
+
+private template executeImpl(Funcs...) if (Funcs.length == 1)
+{
+	import std.container.array : Array;
+
+    bool impl(Values)(BenchmarkOptions options, Array!(Benchmark).Range benchmarks,
+        ref Values values)
+    {
+        return realExecuter!(Funcs[0])(options, benchmarks[0], values);
+    }
+}
+
+private template executeImpl(Funcs...) if (Funcs.length > 1)
+{
+	import std.container.array : Array;
+
+    bool impl(Values)(BenchmarkOptions options, Array!(Benchmark).Range benchmarks,
+        ref Values values)
+    {
+        bool rslt = realExecuter!(Funcs[0])(options, benchmarks[0], values);
+        alias tail = executeImpl!(Funcs[1 .. $]);
+		bool tailResult = tail.impl(options, benchmarks[1 .. $], values);
+        return rslt || tailResult;
+    }
+}
+
+private void initBenchmarksImpl(Funcs...)(ref Array!Benchmark benchs, 
+		ref const(BenchmarkOptions) options)
+{
+    import std.traits : fullyQualifiedName;
+
+    benchs.insertBack(
+		Benchmark(
+			options.maxRounds, 
+			fullyQualifiedName!(Funcs[0])
+		)
+	);
+
+	static if(Funcs.length > 1)
+	{
+		initBenchmarksImpl!(Funcs[1 .. $])(benchs, options);
+	}
+}
+
 version (unittest)
 {
     private bool fun1(uint i)
     {
-        static int c;
-        //writefln("c %s %d", c++, i);
-        for (uint j = 2; j < i; ++j)
+        if (i == 2)
+            return false;
+        for (uint j = 3; j < i / 2; j += 3)
         {
             if (i % j == 0)
             {
                 return false;
             }
         }
-        return false;
+        return true;
     }
 }
 
@@ -139,16 +160,14 @@ unittest
     int c;
     bool delegate(uint i) fun2 = (uint i) {
         ++c;
-        if (i == 2)
-            return false;
-        for (uint j = 3; j < i / 2; j += 3)
+        for (uint j = 2; j < i; ++j)
         {
             if (i % j == 0)
             {
                 return false;
             }
         }
-        return true;
+        return false;
     };
 
     auto opt = BenchmarkOptions("FastPrime", 10, dur!"seconds"(4), 1338);
