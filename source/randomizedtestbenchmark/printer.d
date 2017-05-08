@@ -7,8 +7,6 @@ import std.range : isOutputRange;
 import randomizedtestbenchmark.benchmark;
 import randomizedtestbenchmark.execution;
 
-immutable(double[]) defaultQuantils = [0.01, 0.25, 0.5, 0.75, 0.99];
-
 private Duration getQuantilTick(A)(const auto ref A ticks, double q) pure @safe
 {
 	import std.exception : enforce;
@@ -69,46 +67,24 @@ Params:
 	quantils = The quantils to group the benchmarks results by, by default the
 				quantils are $(D [0.01, 0.25, 0.5, 0.75, 0.99])
 */
-void stdoutPrinter(BenchmarkResult benchs, immutable(double[]) quantils)
+void stdoutPrinter(Stats, Out)(BenchmarkResult benchs, Stats stats,
+	   	Out output) 
 {
-    import std.stdio : writefln;
-    import std.algorithm.sorting : sort;
+	stats.process(benchs, output);
+}
 
-    version (unittest)
-    {
-        foreach (it; quantils)
-        {
-            assert(it <= 1.0, "Quantils must be less equal to 1.0");
-        }
-    }
-    foreach (ref it; benchs.results)
-    {
-        sort(it.ticks[]);
-    }
+void stdoutPrinter(Stats)(BenchmarkResult benchs, Stats stats)
+{
+	import std.stdio : stdout;
 
-	writefln!("Benchmark \"%s\" with maximal rounds \"%d\", "
-			~ "maximal duration \"%s\", and seed \"%d\".")(
-			benchs.options.name, benchs.options.maxRounds, 
-			benchs.options.maxTime, benchs.options.seed
-	);
-
-    auto mst = medianStopWatchTime();
-    writefln!"Median duration to start and stop the StopWatch: %2d hnsecs"(mst);
-    foreach (ref it; benchs.results)
-    {
-        writefln!"Function: %44s run %d times"(it.funcname, it.curRound);
-        foreach (q; quantils)
-        {
-            writefln!"Quantil %3.2f: %33d hnsecs"(q, getQuantilTick(it.ticks,
-                q).total!("hnsecs")());
-        }
-    }
+	auto ltw = stdout.lockingTextWriter();
+	stats.process(ltw);
 }
 
 /// Ditto
 void stdoutPrinter(BenchmarkResult benchs)
 {
-    stdoutPrinter(benchs, defaultQuantils);
+    stdoutPrinter(benchs, Quantils(defaultQuantils));
 }
 
 void gnuplotDataPrinter(BenchmarkResult benchs) 

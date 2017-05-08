@@ -238,7 +238,7 @@ struct RndValueGen(T...)
     Params:
         rnd = The required random number generator.
     */
-    this(Random* rnd)
+    this(Random rnd)
     {
         this.rnd = rnd;
     }
@@ -246,7 +246,7 @@ struct RndValueGen(T...)
     /* The random number generator used to generate new value for all
     $(D values).
     */
-    Random* rnd;
+    Random rnd;
 
     /** A call to this member function will call $(D gen) on all items in
     $(D values) passing $(D the provided) random number generator
@@ -257,7 +257,7 @@ struct RndValueGen(T...)
         {
             foreach (ref it; this.values)
             {
-                it.gen(*this.rnd);
+                it.gen(this.rnd);
             }
         }
     }
@@ -269,7 +269,7 @@ unittest
     auto rnd = Random(1337);
     auto generator = RndValueGen!(["i", "f"], Gen!(int, 0, 10), 
 			Gen!(float, 0.0, 10.0)
-		)(&rnd);
+		)(rnd);
     generator.genValues();
 
     static fun(int i, float f)
@@ -284,7 +284,7 @@ unittest
 @safe pure unittest
 {
     auto rnd = Random(1337);
-    auto generator = RndValueGen!()(&rnd);
+    auto generator = RndValueGen!()(rnd);
     generator.genValues();
 }
 
@@ -299,7 +299,7 @@ unittest
     auto rnd = Random(1337);
     auto generator = RndValueGen!(["i", "f"], Gen!(int, 0, 10), 
 			Gen!(float, 0.0, 10.0)
-		)(&rnd);
+		)(rnd);
 
     generator.genValues();
     foreach (i; 0 .. 1000)

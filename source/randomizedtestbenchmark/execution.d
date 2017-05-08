@@ -50,7 +50,7 @@ template benchmark(Funcs...)
         auto valueGenerator = RndValueGen!(
 				parameterNames, 
 				Parameters!(Funcs[0])
-			)(&rnd);
+			)(rnd);
 
         bool condition = false;
         while (!condition)
