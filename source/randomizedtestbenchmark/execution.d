@@ -174,7 +174,7 @@ unittest
     alias bench = benchmark!(fun1, fun2);
     auto rslt = bench.execute(opt);
     assert(c > 0);
-    stdoutPrinter(rslt);
+    //stdoutPrinter(rslt);
 }
 
 unittest
@@ -217,5 +217,5 @@ unittest
     alias bench = benchmark!(del);
     auto rslt = bench.execute(opt);
     assert(c.c > 0);
-    stdoutPrinter(rslt);
+    //stdoutPrinter(rslt);
 }

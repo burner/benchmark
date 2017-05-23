@@ -21,6 +21,8 @@ bool isPrime(uint a)
 	return true;
 }
 
+__EOF__
+
 /// 
 unittest
 {

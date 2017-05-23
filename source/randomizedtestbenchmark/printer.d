@@ -7,56 +7,7 @@ import std.range : isOutputRange;
 import randomizedtestbenchmark.benchmark;
 import randomizedtestbenchmark.execution;
 
-private Duration getQuantilTick(A)(const auto ref A ticks, double q) pure @safe
-{
-	import std.exception : enforce;
-
-	enforce(ticks.length > 0, "Can't take the quantil of an empty range");
-    size_t idx = cast(size_t)(ticks.length * q);
-
-    if (ticks.length % 2 == 1)
-    {
-        return ticks[idx];
-    }
-    else
-    {
-        if (idx == 0)
-        {
-            return ticks[idx];
-        }
-        else
-        {
-            return (ticks[idx] + ticks[idx - 1]) / 2;
-        }
-    }
-}
-
-unittest
-{
-	import core.time : dur;
-	Duration[1] durs;	
-	durs[0] = dur!"seconds"(2);
-	foreach (q; defaultQuantils)
-	{
-		Duration r = getQuantilTick(durs[], q);
-		assert(r == durs[0]);
-	}
-}
-
-unittest
-{
-	import core.time : dur;
-	Duration[2] durs;	
-	durs[0] = dur!"seconds"(2);
-	durs[1] = dur!"seconds"(2);
-	foreach (q; defaultQuantils)
-	{
-		Duration r = getQuantilTick(durs[], q);
-		assert(r == durs[0] || r == durs[1] 
-			|| r == (durs[0] + durs[1]) / 2
-		);
-	}
-}
+__EOF__
 
 /** Console based benchmark result printer.
 This functions prints the results qrouped into by quantils of all passed
