@@ -78,3 +78,87 @@ unittest
 		test!(q)();
 	}
 }
+
+struct Mean {
+	static Duration compute(SortedDurationArray ticks)
+	{
+		Duration sum;
+		foreach(ref it; ticks) {
+			sum += it;
+		}
+		return sum / ticks.length;
+	}
+}
+
+unittest
+{
+	import std.range : assumeSorted;
+	import core.time : dur;
+
+	Array!(Duration) durs;
+	durs.insertBack(dur!"seconds"(1));
+	durs.insertBack(dur!"seconds"(2));
+
+	auto avg = Mean.compute(assumeSorted(durs[]));
+	assert((durs[0] + durs[1]) / 2 == avg);
+}
+
+struct Mode {
+	static Duration compute(SortedDurationArray ticks)
+	{
+		Duration max;
+		size_t maxCnt;
+		Duration cur;
+		size_t curCnt;
+
+		size_t idx;
+		foreach(ref it; ticks) {
+			if(idx == 0) {
+				cur = it;
+				curCnt = 1;
+			} else {
+				if(it == cur) {
+					++curCnt;
+				} else if(curCnt > maxCnt) {
+					max = cur;
+					maxCnt = curCnt;
+					curCnt = 1;
+					cur = it;
+				}
+			}
+			++idx;
+		}
+		
+		return max;
+	}
+}
+
+unittest
+{
+	import std.range : assumeSorted;
+	import core.time : dur;
+
+	Array!(Duration) durs;
+	durs.insertBack(dur!"seconds"(1));
+	durs.insertBack(dur!"seconds"(2));
+
+	auto avg = Mode.compute(assumeSorted(durs[]));
+	assert(avg == durs[0]);
+}
+
+unittest
+{
+	import std.range : assumeSorted;
+	import core.time : dur;
+	import std.format : format;
+
+	Array!(Duration) durs;
+	durs.insertBack(dur!"seconds"(1));
+	durs.insertBack(dur!"seconds"(1));
+	durs.insertBack(dur!"seconds"(2));
+	durs.insertBack(dur!"seconds"(2));
+	durs.insertBack(dur!"seconds"(2));
+
+	auto avg = Mode.compute(assumeSorted(durs[]));
+	assert(avg == durs[2], format("%s %s", avg, durs[2]));
+}
