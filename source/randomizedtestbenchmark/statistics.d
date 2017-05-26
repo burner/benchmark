@@ -128,6 +128,10 @@ struct Mode {
 			}
 			++idx;
 		}
+
+		if(curCnt > maxCnt) {
+			max = cur;
+		}
 		
 		return max;
 	}
