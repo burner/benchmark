@@ -144,10 +144,22 @@ unittest
 
 	Array!(Duration) durs;
 	durs.insertBack(dur!"seconds"(1));
+
+	auto mode = Mode.compute(assumeSorted(durs[]));
+	assert(mode == durs[0]);
+}
+
+unittest
+{
+	import std.range : assumeSorted;
+	import core.time : dur;
+
+	Array!(Duration) durs;
+	durs.insertBack(dur!"seconds"(1));
 	durs.insertBack(dur!"seconds"(2));
 
-	auto avg = Mode.compute(assumeSorted(durs[]));
-	assert(avg == durs[0]);
+	auto mode = Mode.compute(assumeSorted(durs[]));
+	assert(mode == durs[0]);
 }
 
 unittest
@@ -163,6 +175,23 @@ unittest
 	durs.insertBack(dur!"seconds"(2));
 	durs.insertBack(dur!"seconds"(2));
 
-	auto avg = Mode.compute(assumeSorted(durs[]));
-	assert(avg == durs[2], format("%s %s", avg, durs[2]));
+	auto mode = Mode.compute(assumeSorted(durs[]));
+	assert(mode == durs[2], format("%s %s", mode, durs[2]));
+}
+
+unittest
+{
+	import std.range : assumeSorted;
+	import core.time : dur;
+	import std.format : format;
+
+	Array!(Duration) durs;
+	durs.insertBack(dur!"seconds"(1));
+	durs.insertBack(dur!"seconds"(1));
+	durs.insertBack(dur!"seconds"(1));
+	durs.insertBack(dur!"seconds"(2));
+	durs.insertBack(dur!"seconds"(2));
+
+	auto mode = Mode.compute(assumeSorted(durs[]));
+	assert(mode == durs[0], format("%s %s", mode, durs[2]));
 }
