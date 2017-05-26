@@ -195,3 +195,32 @@ unittest
 	auto mode = Mode.compute(assumeSorted(durs[]));
 	assert(mode == durs[0], format("%s %s", mode, durs[2]));
 }
+
+struct Min {
+	static Duration compute(SortedDurationArray ticks)
+	{
+		return ticks.front;
+	}
+}
+
+struct Max {
+	static Duration compute(SortedDurationArray ticks)
+	{
+		return ticks.back;
+	}
+}
+
+unittest
+{
+	import std.range : assumeSorted;
+	import core.time : dur;
+
+	Array!(Duration) durs;
+	durs.insertBack(dur!"seconds"(1));
+	durs.insertBack(dur!"seconds"(2));
+
+	auto min = Min.compute(assumeSorted(durs[]));
+	assert(min == durs[0]);
+	auto max = Max.compute(assumeSorted(durs[]));
+	assert(max == durs[1]);
+}
