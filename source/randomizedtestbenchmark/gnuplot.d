@@ -14,7 +14,25 @@ Params:
 struct gnuplot(Stats...)
 {
 	this(BenchmarkResult results) {
-		this(results, results.options.name);
+		this(results, buildFilenamePrefix(results));
+	}
+
+	static string buildFilenamePrefix(BenchmarkResult results) {
+		import std.array : appender, empty;
+		if(!results.options.name.empty) {
+			return results.options.name;
+		} else {
+			auto app = appender!string();
+			size_t idx;
+			foreach(ref it; results.results) {
+				if(idx > 0) {
+					app.put('_');
+				}
+				app.put(it.funcname);
+				++idx;
+			}
+			return app.data;
+		}
 	}
 
 	this(BenchmarkResult results, string filenamePrefix) {
