@@ -9,6 +9,15 @@ immutable defaultQuantils = [0.01, 0.25, 0.5, 0.75, 0.99];
 alias SortedDurationArray = SortedRange!(RangeT!(Array!(Duration)), "a < b");
 
 struct Quantil(double quantil) {
+	import std.math : approxEqual;
+	static if(approxEqual(quantil, 1.0)) {
+		static immutable name = "Quantil!1.00";
+	} else {
+		import std.format : format;
+		static immutable name = format!"Quantil!0.%2d"(
+				cast(int)(quantil * 100)
+			);
+	}
 	static Duration compute(SortedDurationArray ticks)
 	{
 		import std.exception : enforce;
@@ -80,6 +89,7 @@ unittest
 }
 
 struct Mean {
+	static immutable name = "Mean";
 	static Duration compute(SortedDurationArray ticks)
 	{
 		Duration sum;
@@ -104,6 +114,7 @@ unittest
 }
 
 struct Mode {
+	static immutable name = "Mode";
 	static Duration compute(SortedDurationArray ticks)
 	{
 		Duration max;
@@ -197,6 +208,7 @@ unittest
 }
 
 struct Min {
+	static immutable name = "Min";
 	static Duration compute(SortedDurationArray ticks)
 	{
 		return ticks.front;
@@ -204,6 +216,7 @@ struct Min {
 }
 
 struct Max {
+	static immutable name = "Max";
 	static Duration compute(SortedDurationArray ticks)
 	{
 		return ticks.back;

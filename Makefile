@@ -3,5 +3,6 @@ all:
 			source/randomizedtestbenchmark/execution.d \
 			source/randomizedtestbenchmark/package.d \
 			source/randomizedtestbenchmark/printer.d \
-			source/randomizedtestbenchmark/valuegenerators.d
+			source/randomizedtestbenchmark/valuegenerators.d \
+			source/randomizedtestbenchmark/statistics.d
 	./benchmark

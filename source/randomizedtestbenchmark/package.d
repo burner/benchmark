@@ -1,6 +1,7 @@
 module randomizedtestbenchmark;
 
 public import randomizedtestbenchmark.printer;
+public import randomizedtestbenchmark.statistics;
 public import randomizedtestbenchmark.benchmark;
 public import randomizedtestbenchmark.execution;
 public import randomizedtestbenchmark.valuegenerators;
@@ -21,14 +22,12 @@ bool isPrime(uint a)
 	return true;
 }
 
-__EOF__
-
 /// 
 unittest
 {
     alias bench = benchmark!(isPrime);
     BenchmarkResult result = bench.execute();
-	stdoutPrinter(result);
+	stdoutPrinter!(Min, Mode, Quantil!0.5, Max)(result);
 
 	/* this prints the results of the benchmark, by default the 0.01, 0.25, 0.50,
 	0.75, and 0.99 runtime quantiles are printed in hnsecs.
@@ -54,8 +53,7 @@ unittest
 
     alias bench = benchmark!(d);
     BenchmarkResult result = bench.execute();
-	stdoutPrinter(result);
-	gnuplotDataPrinter(result, "unittestbenchmark");
+	stdoutPrinter!(Min, Mode, Quantil!0.5, Max)(result);
 }
 
 /*
