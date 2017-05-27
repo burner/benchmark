@@ -8,13 +8,10 @@ import randomizedtestbenchmark.benchmark;
 import randomizedtestbenchmark.execution;
 
 /** Console based benchmark result printer.
-This functions prints the results qrouped into by quantils of all passed
-benchmarks.
 
 Params:
-	benchs = The $(D BenchmarkResult)
-	quantils = The quantils to group the benchmarks results by, by default the
-				quantils are $(D [0.01, 0.25, 0.5, 0.75, 0.99])
+	Stats = The statistic values to print for the past $(D results)
+	results = The $(D BenchmarkResult) to print the statistics for
 */
 struct stdoutPrinter(Stats...)
 {

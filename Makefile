@@ -4,5 +4,6 @@ all:
 			source/randomizedtestbenchmark/package.d \
 			source/randomizedtestbenchmark/printer.d \
 			source/randomizedtestbenchmark/valuegenerators.d \
-			source/randomizedtestbenchmark/statistics.d
+			source/randomizedtestbenchmark/statistics.d \
+			source/randomizedtestbenchmark/gnuplot.d
 	./benchmark
