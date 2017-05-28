@@ -1,7 +1,29 @@
 module randomizedtestbenchmark.gnuplot;
 
+import std.container.array : Array;
+
 import randomizedtestbenchmark.benchmark;
 import randomizedtestbenchmark.execution;
+import randomizedtestbenchmark.statistics;
+
+struct ResultEntry {
+	import std.datetime : DateTime;
+	import core.time : Duration;
+
+	DateTime datetime;
+	Array!Duration entries;
+}
+
+struct Result {
+	string functionName;
+	Array!ResultEntry entries;
+
+	this(string functionName, ResultEntry re) {
+		this.functionName = functionName;
+		entries.insertBack(re);
+	}
+}
+
 
 /** gnuplot based benchmark result printer.
 
@@ -16,23 +38,8 @@ struct gnuplot(Stats...)
 	import std.stdio : File;
 	import std.container.array : Array;
 	import std.format : formattedWrite;
-	import std.datetime : DateTime;
+	import std.datetime : DateTime, SysTime;
 	import core.time : Duration;
-
-	struct ResultEntry {
-		DateTime datetime;
-		Array!Duration entries;
-	}
-
-	struct Result {
-		string functionName;
-		Array!ResultEntry entries;
-
-		this(string functionName, ResultEntry re) {
-			this.functionName = functionName;
-			entries.insertBack(re);
-		}
-	}
 
 	this(BenchmarkResult results) {
 		this(results, buildFilenamePrefix(results));
@@ -43,6 +50,7 @@ struct gnuplot(Stats...)
 
 		this.writeDataFile(results, filenamePrefix);
 		Array!Result oldResults = readResults(filenamePrefix);
+		writeGnuplotData!(Stats)(oldResults, filenamePrefix);
 	}
 
 	static string buildFilenamePrefix(BenchmarkResult results) {
@@ -131,13 +139,76 @@ struct gnuplot(Stats...)
 		}
 		formattedWrite(ltw, "\n");
 	}
+}
 
-	private static void writeOutSelectedData(Out, St...)(ref Array!Result result, 
-			ref Out ltw)
-	{
-		foreach(ref it; result[]) {
-			formattedWrite(ltw, "%s %s %s\n", it.funcname);
+//set format x %s
+auto gnuplotString = q"{set title "%s"
+set terminal pngcairo enhanced font 'Verdana,10'
+set ytics nomirror
+set ylabel "Time (hnsecs) Single Call"
+set term png
+set output "%s"
+set bmargin 10
+set timefmt '%%Y-%%m-%%dT%%H:%%M%%S'
+set autoscale x
+set offset graph 0.10, 0.10
+set style fill empty
+set xtics rotate by -90 offset 0,0
+set grid
+plot}";
+
+private void writeGnuplotData(St...)(ref Array!Result result, 
+		string filenamePrefix)
+{
+	import std.range : assumeSorted;
+	import std.stdio : File;
+	import std.format : formattedWrite;
+
+	foreach(ref it; result[]) {
+		string dataFilename = filenamePrefix ~ it.functionName ~ ".data";
+		auto f = File(dataFilename, "w");
+		auto ltw = f.lockingTextWriter();
+		foreach(ref jt; it.entries[]) {
+			formattedWrite(ltw, "%s", jt.datetime.toISOExtString());
+			writeGnuplotDataImpl!(typeof(ltw),St)(
+					ltw, assumeSorted(jt.entries[])
+				);
+			formattedWrite(ltw, "\n");
 		}
 
+		auto gf = File(filenamePrefix ~ it.functionName ~ ".gp", "w");
+		auto ltw2 = gf.lockingTextWriter();
+		formattedWrite(ltw2, gnuplotString, it.functionName,
+				filenamePrefix ~ it.functionName ~ ".png"
+			);
+		writeGnuplotImpl!(typeof(ltw2), St)(ltw2, dataFilename, 2);
 	}
+}
+
+private void writeGnuplotDataImpl(Out, St...)(ref Out ltw, 
+		SortedDurationArray durs) 
+{
+	import std.format : formattedWrite;
+
+	formattedWrite(ltw, " %s", St[0].compute(durs).total!"hnsecs"());
+	static if(St.length > 1) {
+		writeGnuplotDataImpl!(Out, St[1 .. $])(ltw, durs);
+	}	
+}
+
+private void writeGnuplotImpl(Out, St...)(ref Out ltw, 
+		string dataFilename, size_t idx) 
+{
+	import std.format : formattedWrite;
+
+	if(idx > 2) {
+		formattedWrite(ltw, ",");
+	}
+
+	formattedWrite(ltw, " \"%s\" using 1:%d title \"%s\"", 
+			dataFilename, idx, St[0].name
+		);
+	static if(St.length > 1) {
+		writeGnuplotImpl!(Out, St[1 .. $])(ltw, dataFilename, idx + 1);
+	}	
 }

@@ -29,7 +29,6 @@ unittest
     alias bench = benchmark!(isPrime);
     BenchmarkResult result = bench.execute();
 	stdoutPrinter!(Min, Mode, Quantil!0.5, Max)(result);
-	gnuplot!(Min, Mode, Quantil!0.5, Max)(result);
 
 	/* this prints the results of the benchmark, by default the 0.01, 0.25, 0.50,
 	0.75, and 0.99 runtime quantiles are printed in hnsecs.
@@ -78,6 +77,7 @@ unittest
 	// To test multiple functions with the same parameter just list them
     alias bench = benchmark!(fun, fun2);
     BenchmarkResult result = bench.execute();
+	gnuplot!(Min, Mode, Quantil!0.5, Max)(result, "funs");
 }
 
 /**
