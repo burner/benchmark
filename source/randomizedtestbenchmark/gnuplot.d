@@ -15,10 +15,11 @@ struct gnuplot(Stats...)
 {
 	import std.stdio : File;
 	import std.container.array : Array;
+	import std.format : formattedWrite;
+	import std.datetime : DateTime;
+	import core.time : Duration;
 
 	struct ResultEntry {
-		import std.datetime : DateTime;
-		import core.time : Duration;
 		DateTime datetime;
 		Array!Duration entries;
 	}
@@ -26,10 +27,22 @@ struct gnuplot(Stats...)
 	struct Result {
 		string functionName;
 		Array!ResultEntry entries;
+
+		this(string functionName, ResultEntry re) {
+			this.functionName = functionName;
+			entries.insertBack(re);
+		}
 	}
 
 	this(BenchmarkResult results) {
 		this(results, buildFilenamePrefix(results));
+	}
+
+	this(BenchmarkResult results, string filenamePrefix) {
+		import std.stdio;
+
+		this.writeDataFile(results, filenamePrefix);
+		Array!Result oldResults = readResults(filenamePrefix);
 	}
 
 	static string buildFilenamePrefix(BenchmarkResult results) {
@@ -50,11 +63,6 @@ struct gnuplot(Stats...)
 		}
 	}
 
-	this(BenchmarkResult results, string filenamePrefix) {
-		this.writeDataFile(results, filenamePrefix);
-		Array!Result oldResults = readResults(filenamePrefix);
-	}
-
 	void writeDataFile(BenchmarkResult results, string filenamePrefix) {
 		import std.datetime : Clock;
 		import std.algorithm.sorting : sort;
@@ -71,21 +79,26 @@ struct gnuplot(Stats...)
 		}
 	}
 
+	private static bool cmp(char[] a, Result b) {
+		return b.functionName == a;
+	}
+
 	private static Array!Result readResults(string filenamePrefix) {
 		import std.algorithm.iteration : splitter;
 		import std.algorithm.searching : find;
+		import std.conv : to;
 		Array!Result ret;
 		auto data = File(filenamePrefix ~ ".data", "r");
-		foreach(line; data.byline()) {
+		foreach(line; data.byLine()) {
 			auto sp = line.splitter(',');
-			string name = sp.front;
+			char[] name = sp.front;
 			sp.popFront();
 
-			auto entry = find!("a == b.functionName")(ret[]);
+			auto entry = find!(a => a.functionName == name)(ret[]);
 			if(entry.empty) {
-				ret.insertBack(name, parseLine(sp));
+				ret.insertBack(Result(to!string(name), parseLine(sp)));
 			} else {
-				entry.entries.insertBack(parseLine(sp));
+				entry.front.entries.insertBack(parseLine(sp));
 			}
 		}
 
@@ -93,8 +106,8 @@ struct gnuplot(Stats...)
 	}
 
 	private static ResultEntry parseLine(Line)(ref Line line) {
-		import std.datetime : DateTime, Systime;
-		import core.time : Duration, dur;
+		import std.conv : to;
+		import core.time : dur;
 		ResultEntry ret;
 
 		ret.datetime = cast(DateTime)SysTime.fromISOExtString(line.front);
@@ -110,7 +123,6 @@ struct gnuplot(Stats...)
 	private static void writeData(Out)(ref Benchmark bench, ref Out ltw, 
 			string date) 
 	{
-		import std.format : formattedWrite;
 		import std.range : assumeSorted;
 	
 		formattedWrite(ltw, "%s,%s", bench.funcname, date);
@@ -118,5 +130,14 @@ struct gnuplot(Stats...)
 			formattedWrite(ltw, ",%s", it.total!"hnsecs"());
 		}
 		formattedWrite(ltw, "\n");
+	}
+
+	private static void writeOutSelectedData(Out, St...)(ref Array!Result result, 
+			ref Out ltw)
+	{
+		foreach(ref it; result[]) {
+			formattedWrite(ltw, "%s %s %s\n", it.funcname);
+		}
+
 	}
 }
