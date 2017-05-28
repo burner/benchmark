@@ -13,6 +13,21 @@ Params:
 */
 struct gnuplot(Stats...)
 {
+	import std.stdio : File;
+	import std.container.array : Array;
+
+	struct ResultEntry {
+		import std.datetime : DateTime;
+		import core.time : Duration;
+		DateTime datetime;
+		Array!Duration entries;
+	}
+
+	struct Result {
+		string functionName;
+		Array!ResultEntry entries;
+	}
+
 	this(BenchmarkResult results) {
 		this(results, buildFilenamePrefix(results));
 	}
@@ -36,7 +51,11 @@ struct gnuplot(Stats...)
 	}
 
 	this(BenchmarkResult results, string filenamePrefix) {
-		import std.stdio : File;
+		this.writeDataFile(results, filenamePrefix);
+		Array!Result oldResults = readResults(filenamePrefix);
+	}
+
+	void writeDataFile(BenchmarkResult results, string filenamePrefix) {
 		import std.datetime : Clock;
 		import std.algorithm.sorting : sort;
 
@@ -48,21 +67,56 @@ struct gnuplot(Stats...)
 
 		foreach(ref it; results.results) {
 			sort(it.ticks[]);	
-			gnuplotImpl!(Stats).print(it, dataLTW, timeString);
+			writeData(it, dataLTW, timeString);
 		}
 	}
-}
 
-private template gnuplotImpl(Stats...) {
-	void print(Out)(ref Benchmark bench, ref Out ltw, string date) {
+	private static Array!Result readResults(string filenamePrefix) {
+		import std.algorithm.iteration : splitter;
+		import std.algorithm.searching : find;
+		Array!Result ret;
+		auto data = File(filenamePrefix ~ ".data", "r");
+		foreach(line; data.byline()) {
+			auto sp = line.splitter(',');
+			string name = sp.front;
+			sp.popFront();
+
+			auto entry = find!("a == b.functionName")(ret[]);
+			if(entry.empty) {
+				ret.insertBack(name, parseLine(sp));
+			} else {
+				entry.entries.insertBack(parseLine(sp));
+			}
+		}
+
+		return ret;
+	}
+
+	private static ResultEntry parseLine(Line)(ref Line line) {
+		import std.datetime : DateTime, Systime;
+		import core.time : Duration, dur;
+		ResultEntry ret;
+
+		ret.datetime = cast(DateTime)SysTime.fromISOExtString(line.front);
+		line.popFront();
+		while(!line.empty) {
+			ret.entries.insertBack(dur!"hnsecs"(to!long(line.front)));
+			line.popFront();
+		}
+
+		return ret;
+	}
+
+	private static void writeData(Out)(ref Benchmark bench, ref Out ltw, 
+			string date) 
+	{
 		import std.format : formattedWrite;
 		import std.range : assumeSorted;
-
-		formattedWrite(ltw, "%s %s %s %s\n", bench.funcname, Stats[0].name,
-				date, Stats[0].compute(assumeSorted(bench.ticks[])).total!"hnsecs"
-			);
-		static if(Stats.length > 1) {
-			gnuplotImpl!(Stats[1 .. $]).print(bench, ltw, date);
+	
+		formattedWrite(ltw, "%s,%s", bench.funcname, date);
+		foreach(ref it; bench.ticks[]) {
+			formattedWrite(ltw, ",%s", it.total!"hnsecs"());
 		}
+		formattedWrite(ltw, "\n");
 	}
 }
