@@ -144,18 +144,18 @@ struct gnuplot(Stats...)
 //set format x %s
 auto gnuplotString = q"{set title "%s"
 set terminal pngcairo enhanced font 'Verdana,10'
-set ytics nomirror
 set ylabel "Time (hnsecs) Single Call"
 set term png
 set output "%s"
-set bmargin 10
-set timefmt '%%Y-%%m-%%dT%%H:%%M%%S'
-set autoscale x
+set key invert reverse Left outside
+set key autotitle columnheader
+set style data histograms
+set style histogram rowstacked
+set style fill solid border
 set offset graph 0.10, 0.10
-set style fill empty
 set xtics rotate by -90 offset 0,0
 set grid
-plot}";
+plot '%s' }";
 
 private void writeGnuplotData(St...)(ref Array!Result result, 
 		string filenamePrefix)
@@ -163,6 +163,7 @@ private void writeGnuplotData(St...)(ref Array!Result result,
 	import std.range : assumeSorted;
 	import std.stdio : File;
 	import std.format : formattedWrite;
+	import std.array : replace;
 
 	foreach(ref it; result[]) {
 		string dataFilename = filenamePrefix ~ it.functionName ~ ".data";
@@ -178,10 +179,12 @@ private void writeGnuplotData(St...)(ref Array!Result result,
 
 		auto gf = File(filenamePrefix ~ it.functionName ~ ".gp", "w");
 		auto ltw2 = gf.lockingTextWriter();
-		formattedWrite(ltw2, gnuplotString, it.functionName,
-				filenamePrefix ~ it.functionName ~ ".png"
+		formattedWrite(ltw2, gnuplotString, 
+				it.functionName.replace("_", "\\\\_"),
+				filenamePrefix ~ it.functionName ~ ".png",
+				dataFilename
 			);
-		writeGnuplotImpl!(typeof(ltw2), St)(ltw2, dataFilename, 2);
+		writeGnuplotImpl!(typeof(ltw2), St)(ltw2, 2);
 	}
 }
 
@@ -196,19 +199,17 @@ private void writeGnuplotDataImpl(Out, St...)(ref Out ltw,
 	}	
 }
 
-private void writeGnuplotImpl(Out, St...)(ref Out ltw, 
-		string dataFilename, size_t idx) 
-{
+private void writeGnuplotImpl(Out, St...)(ref Out ltw, size_t idx) {
 	import std.format : formattedWrite;
 
 	if(idx > 2) {
-		formattedWrite(ltw, ",");
+		formattedWrite(ltw, ", ''");
 	}
 
-	formattedWrite(ltw, " \"%s\" using 1:%d title \"%s\"", 
-			dataFilename, idx, St[0].name
+	formattedWrite(ltw, " using %d:xtic(1) title \"%s\"", 
+			idx, St[0].name
 		);
 	static if(St.length > 1) {
-		writeGnuplotImpl!(Out, St[1 .. $])(ltw, dataFilename, idx + 1);
+		writeGnuplotImpl!(Out, St[1 .. $])(ltw, idx + 1);
 	}	
 }
