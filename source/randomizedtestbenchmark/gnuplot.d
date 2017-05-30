@@ -145,10 +145,9 @@ struct gnuplot(Stats...)
 auto gnuplotString = q"{set title "%s"
 set terminal pngcairo enhanced font 'Verdana,10'
 set ylabel "Time (hnsecs) Single Call"
-set term png
+set term svg
 set output "%s"
 set key invert reverse Left outside
-set key autotitle columnheader
 set style data histograms
 set style histogram rowstacked
 set style fill solid border
@@ -181,7 +180,7 @@ private void writeGnuplotData(St...)(ref Array!Result result,
 		auto ltw2 = gf.lockingTextWriter();
 		formattedWrite(ltw2, gnuplotString, 
 				it.functionName.replace("_", "\\\\_"),
-				filenamePrefix ~ it.functionName ~ ".png",
+				filenamePrefix ~ it.functionName ~ ".svg",
 				dataFilename
 			);
 		writeGnuplotImpl!(typeof(ltw2), St)(ltw2, 2);
