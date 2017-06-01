@@ -13,24 +13,24 @@ with this package.
 
 import randomizedtestbenchmark;
 
-uint sumOfDivisors(uint a) 
+bool isPrime(uint a) 
 {
 	uint ret;
-	for (uint i = 1; i < a/2; ++i)
+	for (uint i = 2; i < a; ++i)
 	{
 		if (ret % i == 0) {
-			ret += i;
+			return false;
 		}
 	}
-	return ret;
+	return true;
 }
 
-/// Ditto
+/// 
 unittest
 {
-    alias bench = benchmark!(sumOfDivisors);
+    alias bench = benchmark!(isPrime);
     BenchmarkResult result = bench.execute();
-
-    stdoutPrinter(result);
+	stdoutPrinter!(Min, Mode, Quantil!0.5, Max)(result);
+	gnuplot!(Min, Mode, Quantil!0.5, Max)(result);
 }
 ```
