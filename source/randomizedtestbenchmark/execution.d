@@ -1,7 +1,7 @@
 module randomizedtestbenchmark.execution;
 
 import randomizedtestbenchmark.benchmark : Benchmark, BenchmarkOptions,
-	   BenchmarkResult;
+    BenchmarkResult;
 
 import std.container.array : Array;
 
@@ -12,15 +12,15 @@ After the benchmark is constructed it is executed by calling execute.
 */
 template benchmark(Funcs...)
 {
-	import std.container.array : Array;
+    import std.container.array : Array;
 
     void initBenchmarks(ref Array!Benchmark benchmarks, 
 			ref const(BenchmarkOptions) options)
     {
-		initBenchmarksImpl!(Funcs)(benchmarks, options);
+        initBenchmarksImpl!(Funcs)(benchmarks, options);
     }
 
-	/** Start the benchmark process
+    /** Start the benchmark process
 	Params:
 		options = The Options to use. By default the benchmark will run for 5
 		seconds or no more than 2000 rounds.
@@ -33,7 +33,7 @@ template benchmark(Funcs...)
         return execute(options);
     }
 
-	/// Ditto
+    /// Ditto
     BenchmarkResult execute(BenchmarkOptions options)
     {
         import std.random : Random;
@@ -47,10 +47,8 @@ template benchmark(Funcs...)
         auto rnd = Random(options.seed);
 
         enum parameterNames = [ParameterIdentifierTuple!(Funcs[0])];
-        auto valueGenerator = RndValueGen!(
-				parameterNames, 
-				Parameters!(Funcs[0])
-			)(rnd);
+        auto valueGenerator = RndValueGen!(parameterNames, 
+				Parameters!(Funcs[0]))(rnd);
 
         bool condition = false;
         while (!condition)
@@ -60,21 +58,21 @@ template benchmark(Funcs...)
             condition = exe.impl(options, benchmarks[], valueGenerator);
         }
 
-		return BenchmarkResult(options, benchmarks);
+        return BenchmarkResult(options, benchmarks);
     }
 }
 
 private bool shouldBeStopped(const ref Benchmark benchmark,
-		const ref BenchmarkOptions options)
+	   	const ref BenchmarkOptions options)
 {
     return benchmark.curRound > options.maxRounds 
 		|| benchmark.timeSpend > options.maxTime;
 }
 
 private bool realExecuter(alias Fun, Values)(ref BenchmarkOptions options,
-    ref Benchmark bench, ref Values values)
+        ref Benchmark bench, ref Values values)
 {
-	import std.traits : ReturnType;
+    import std.traits : ReturnType;
 
     bench.start();
     static if (is(ReturnType!(Fun) == void))
@@ -94,10 +92,10 @@ private bool realExecuter(alias Fun, Values)(ref BenchmarkOptions options,
 
 private template executeImpl(Funcs...) if (Funcs.length == 1)
 {
-	import std.container.array : Array;
+    import std.container.array : Array;
 
-    bool impl(Values)(BenchmarkOptions options, Array!(Benchmark).Range benchmarks,
-        ref Values values)
+    bool impl(Values)(BenchmarkOptions options, Array!(Benchmark)
+            .Range benchmarks, ref Values values)
     {
         return realExecuter!(Funcs[0])(options, benchmarks[0], values);
     }
@@ -105,34 +103,31 @@ private template executeImpl(Funcs...) if (Funcs.length == 1)
 
 private template executeImpl(Funcs...) if (Funcs.length > 1)
 {
-	import std.container.array : Array;
+    import std.container.array : Array;
 
-    bool impl(Values)(BenchmarkOptions options, Array!(Benchmark).Range benchmarks,
-        ref Values values)
+    bool impl(Values)(BenchmarkOptions options, Array!(Benchmark)
+            .Range benchmarks, ref Values values)
     {
         bool rslt = realExecuter!(Funcs[0])(options, benchmarks[0], values);
         alias tail = executeImpl!(Funcs[1 .. $]);
-		bool tailResult = tail.impl(options, benchmarks[1 .. $], values);
+        bool tailResult = tail.impl(options, benchmarks[1 .. $], values);
         return rslt || tailResult;
     }
 }
 
-private void initBenchmarksImpl(Funcs...)(ref Array!Benchmark benchs, 
-		ref const(BenchmarkOptions) options)
+private void initBenchmarksImpl(Funcs...)(ref Array!Benchmark benchs,
+        ref const(BenchmarkOptions) options)
 {
     import std.traits : fullyQualifiedName;
 
     benchs.insertBack(
-		Benchmark(
-			options.maxRounds, 
-			fullyQualifiedName!(Funcs[0])
-		)
-	);
+			Benchmark(options.maxRounds, fullyQualifiedName!(Funcs[0]))
+		);
 
-	static if(Funcs.length > 1)
-	{
-		initBenchmarksImpl!(Funcs[1 .. $])(benchs, options);
-	}
+    static if (Funcs.length > 1)
+    {
+        initBenchmarksImpl!(Funcs[1 .. $])(benchs, options);
+    }
 }
 
 version (unittest)
@@ -207,7 +202,8 @@ unittest
 
     auto c = new DummyClass();
     auto del = delegate(Gen!(ulong, 0, 1024) i) {
-		import randomizedtestbenchmark.benchmark : doNotOptimizeAway;
+        import randomizedtestbenchmark.benchmark : doNotOptimizeAway;
+
         bool tmp = c.fun(i);
         doNotOptimizeAway(tmp);
         return tmp;

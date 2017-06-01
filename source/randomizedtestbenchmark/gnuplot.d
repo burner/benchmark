@@ -6,24 +6,26 @@ import randomizedtestbenchmark.benchmark;
 import randomizedtestbenchmark.execution;
 import randomizedtestbenchmark.statistics;
 
-struct ResultEntry {
-	import std.datetime : DateTime;
-	import core.time : Duration;
+struct ResultEntry
+{
+    import std.datetime : DateTime;
+    import core.time : Duration;
 
-	DateTime datetime;
-	Array!Duration entries;
+    DateTime datetime;
+    Array!Duration entries;
 }
 
-struct Result {
-	string functionName;
-	Array!ResultEntry entries;
+struct Result
+{
+    string functionName;
+    Array!ResultEntry entries;
 
-	this(string functionName, ResultEntry re) {
-		this.functionName = functionName;
-		entries.insertBack(re);
-	}
+    this(string functionName, ResultEntry re)
+    {
+        this.functionName = functionName;
+        entries.insertBack(re);
+    }
 }
-
 
 /** gnuplot based benchmark result printer.
 
@@ -35,110 +37,132 @@ Params:
 */
 struct gnuplot(Stats...)
 {
-	import std.stdio : File;
-	import std.container.array : Array;
-	import std.format : formattedWrite;
-	import std.datetime : DateTime, SysTime;
-	import core.time : Duration;
+    import std.stdio : File;
+    import std.container.array : Array;
+    import std.format : formattedWrite;
+    import std.datetime : DateTime, SysTime;
+    import core.time : Duration;
 
-	this(BenchmarkResult results) {
-		this(results, buildFilenamePrefix(results));
-	}
+    this(BenchmarkResult results)
+    {
+        this(results, buildFilenamePrefix(results));
+    }
 
-	this(BenchmarkResult results, string filenamePrefix) {
-		import std.stdio;
+    this(BenchmarkResult results, string filenamePrefix)
+    {
+        import std.stdio;
 
-		this.writeDataFile(results, filenamePrefix);
-		Array!Result oldResults = readResults(filenamePrefix);
-		writeGnuplotData!(Stats)(oldResults, filenamePrefix);
-	}
+        this.writeDataFile(results, filenamePrefix);
+        Array!Result oldResults = readResults(filenamePrefix);
+        writeGnuplotData!(Stats)(oldResults, filenamePrefix);
+    }
 
-	static string buildFilenamePrefix(BenchmarkResult results) {
-		import std.array : appender, empty;
-		if(!results.options.name.empty) {
-			return results.options.name;
-		} else {
-			auto app = appender!string();
-			size_t idx;
-			foreach(ref it; results.results) {
-				if(idx > 0) {
-					app.put('_');
-				}
-				app.put(it.funcname);
-				++idx;
-			}
-			return app.data;
-		}
-	}
+    static string buildFilenamePrefix(BenchmarkResult results)
+    {
+        import std.array : appender, empty;
 
-	void writeDataFile(BenchmarkResult results, string filenamePrefix) {
-		import std.datetime : Clock;
-		import std.algorithm.sorting : sort;
+        if (!results.options.name.empty)
+        {
+            return results.options.name;
+        }
+        else
+        {
+            auto app = appender!string();
+            size_t idx;
+            foreach (ref it; results.results)
+            {
+                if (idx > 0)
+                {
+                    app.put('_');
+                }
+                app.put(it.funcname);
+                ++idx;
+            }
+            return app.data;
+        }
+    }
 
-		auto data = File(filenamePrefix ~ ".data", "a");
-		auto dataLTW = data.lockingTextWriter();
+    void writeDataFile(BenchmarkResult results, string filenamePrefix)
+    {
+        import std.datetime : Clock;
+        import std.algorithm.sorting : sort;
 
-		auto currentTime = Clock.currTime();
-		string timeString = currentTime.toISOExtString();
+        auto data = File(filenamePrefix ~ ".data", "a");
+        auto dataLTW = data.lockingTextWriter();
 
-		foreach(ref it; results.results) {
-			sort(it.ticks[]);	
-			writeData(it, dataLTW, timeString);
-		}
-	}
+        auto currentTime = Clock.currTime();
+        string timeString = currentTime.toISOExtString();
 
-	private static bool cmp(char[] a, Result b) {
-		return b.functionName == a;
-	}
+        foreach (ref it; results.results)
+        {
+            sort(it.ticks[]);
+            writeData(it, dataLTW, timeString);
+        }
+    }
 
-	private static Array!Result readResults(string filenamePrefix) {
-		import std.algorithm.iteration : splitter;
-		import std.algorithm.searching : find;
-		import std.conv : to;
-		Array!Result ret;
-		auto data = File(filenamePrefix ~ ".data", "r");
-		foreach(line; data.byLine()) {
-			auto sp = line.splitter(',');
-			char[] name = sp.front;
-			sp.popFront();
+    private static bool cmp(char[] a, Result b)
+    {
+        return b.functionName == a;
+    }
 
-			auto entry = find!(a => a.functionName == name)(ret[]);
-			if(entry.empty) {
-				ret.insertBack(Result(to!string(name), parseLine(sp)));
-			} else {
-				entry.front.entries.insertBack(parseLine(sp));
-			}
-		}
+    private static Array!Result readResults(string filenamePrefix)
+    {
+        import std.algorithm.iteration : splitter;
+        import std.algorithm.searching : find;
+        import std.conv : to;
 
-		return ret;
-	}
+        Array!Result ret;
+        auto data = File(filenamePrefix ~ ".data", "r");
+        foreach (line; data.byLine())
+        {
+            auto sp = line.splitter(',');
+            char[] name = sp.front;
+            sp.popFront();
 
-	private static ResultEntry parseLine(Line)(ref Line line) {
-		import std.conv : to;
-		import core.time : dur;
-		ResultEntry ret;
+            auto entry = find!(a => a.functionName == name)(ret[]);
+            if (entry.empty)
+            {
+                ret.insertBack(Result(to!string(name), parseLine(sp)));
+            }
+            else
+            {
+                entry.front.entries.insertBack(parseLine(sp));
+            }
+        }
 
-		ret.datetime = cast(DateTime)SysTime.fromISOExtString(line.front);
-		line.popFront();
-		while(!line.empty) {
-			ret.entries.insertBack(dur!"hnsecs"(to!long(line.front)));
-			line.popFront();
-		}
+        return ret;
+    }
 
-		return ret;
-	}
+    private static ResultEntry parseLine(Line)(ref Line line)
+    {
+        import std.conv : to;
+        import core.time : dur;
 
-	private static void writeData(Out)(ref Benchmark bench, ref Out ltw, 
-			string date) 
-	{
-		import std.range : assumeSorted;
-	
-		formattedWrite(ltw, "%s,%s", bench.funcname, date);
-		foreach(ref it; bench.ticks[]) {
-			formattedWrite(ltw, ",%s", it.total!"hnsecs"());
-		}
-		formattedWrite(ltw, "\n");
-	}
+        ResultEntry ret;
+
+        ret.datetime = cast(DateTime) SysTime.fromISOExtString(line.front);
+        line.popFront();
+        while (!line.empty)
+        {
+            ret.entries.insertBack(dur!"hnsecs"(to!long(line.front)));
+            line.popFront();
+        }
+
+        return ret;
+    }
+
+    private static void writeData(Out)(ref Benchmark bench, ref Out ltw,
+		   	string date)
+    {
+        import std.range : assumeSorted;
+
+        formattedWrite(ltw, "%s,%s", bench.funcname, date);
+        foreach (ref it; bench.ticks[])
+        {
+            formattedWrite(ltw, ",%s", it.total!"hnsecs"());
+        }
+        formattedWrite(ltw, "\n");
+    }
 }
 
 //set format x %s
@@ -159,56 +183,59 @@ plot '%s' }";
 private void writeGnuplotData(St...)(ref Array!Result result, 
 		string filenamePrefix)
 {
-	import std.range : assumeSorted;
-	import std.stdio : File;
-	import std.format : formattedWrite;
-	import std.array : replace;
+    import std.range : assumeSorted;
+    import std.stdio : File;
+    import std.format : formattedWrite;
+    import std.array : replace;
 
-	foreach(ref it; result[]) {
-		string dataFilename = filenamePrefix ~ it.functionName ~ ".data";
-		auto f = File(dataFilename, "w");
-		auto ltw = f.lockingTextWriter();
-		foreach(ref jt; it.entries[]) {
-			formattedWrite(ltw, "%s", jt.datetime.toISOExtString());
-			writeGnuplotDataImpl!(typeof(ltw),St)(
-					ltw, assumeSorted(jt.entries[])
+    foreach (ref it; result[])
+    {
+        string dataFilename = filenamePrefix ~ it.functionName ~ ".data";
+        auto f = File(dataFilename, "w");
+        auto ltw = f.lockingTextWriter();
+        foreach (ref jt; it.entries[])
+        {
+            formattedWrite(ltw, "%s", jt.datetime.toISOExtString());
+            writeGnuplotDataImpl!(typeof(ltw), St)(ltw, 
+					assumeSorted(jt.entries[])
 				);
-			formattedWrite(ltw, "\n");
-		}
+            formattedWrite(ltw, "\n");
+        }
 
-		auto gf = File(filenamePrefix ~ it.functionName ~ ".gp", "w");
-		auto ltw2 = gf.lockingTextWriter();
-		formattedWrite(ltw2, gnuplotString, 
-				it.functionName.replace("_", "\\\\_"),
-				filenamePrefix ~ it.functionName ~ ".svg",
-				dataFilename
+        auto gf = File(filenamePrefix ~ it.functionName ~ ".gp", "w");
+        auto ltw2 = gf.lockingTextWriter();
+        formattedWrite(ltw2, gnuplotString, it.functionName.replace("_",
+                "\\\\_"), filenamePrefix ~ it.functionName ~ ".svg",
+			   	dataFilename
 			);
-		writeGnuplotImpl!(typeof(ltw2), St)(ltw2, 2);
-	}
+        writeGnuplotImpl!(typeof(ltw2), St)(ltw2, 2);
+    }
 }
 
 private void writeGnuplotDataImpl(Out, St...)(ref Out ltw, 
-		SortedDurationArray durs) 
+		SortedDurationArray durs)
 {
-	import std.format : formattedWrite;
+    import std.format : formattedWrite;
 
-	formattedWrite(ltw, " %s", St[0].compute(durs).total!"hnsecs"());
-	static if(St.length > 1) {
-		writeGnuplotDataImpl!(Out, St[1 .. $])(ltw, durs);
-	}	
+    formattedWrite(ltw, " %s", St[0].compute(durs).total!"hnsecs"());
+    static if (St.length > 1)
+    {
+        writeGnuplotDataImpl!(Out, St[1 .. $])(ltw, durs);
+    }
 }
 
-private void writeGnuplotImpl(Out, St...)(ref Out ltw, size_t idx) {
-	import std.format : formattedWrite;
+private void writeGnuplotImpl(Out, St...)(ref Out ltw, size_t idx)
+{
+    import std.format : formattedWrite;
 
-	if(idx > 2) {
-		formattedWrite(ltw, ", ''");
-	}
+    if (idx > 2)
+    {
+        formattedWrite(ltw, ", ''");
+    }
 
-	formattedWrite(ltw, " using %d:xtic(1) title \"%s\"", 
-			idx, St[0].name
-		);
-	static if(St.length > 1) {
-		writeGnuplotImpl!(Out, St[1 .. $])(ltw, idx + 1);
-	}	
+    formattedWrite(ltw, " using %d:xtic(1) title \"%s\"", idx, St[0].name);
+    static if (St.length > 1)
+    {
+        writeGnuplotImpl!(Out, St[1 .. $])(ltw, idx + 1);
+    }
 }

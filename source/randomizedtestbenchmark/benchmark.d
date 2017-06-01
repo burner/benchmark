@@ -133,11 +133,10 @@ struct BenchmarkOptions
 
 struct BenchmarkResult
 {
-	import std.container.array : Array;
-	import randomizedtestbenchmark.benchmark : Benchmark;
-	import randomizedtestbenchmark.execution : BenchmarkOptions;
+    import std.container.array : Array;
+    import randomizedtestbenchmark.benchmark : Benchmark;
+    import randomizedtestbenchmark.execution : BenchmarkOptions;
 
-	BenchmarkOptions options;
-	Array!Benchmark results;
+    BenchmarkOptions options;
+    Array!Benchmark results;
 }
-
