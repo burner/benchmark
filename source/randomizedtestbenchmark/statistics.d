@@ -1,12 +1,12 @@
 module randomizedtestbenchmark.statistics;
 
-import std.container.array : Array, RangeT;
+import std.container.array : Array;
 import core.time : Duration;
 import std.range : SortedRange;
 
 immutable defaultQuantils = [0.01, 0.25, 0.5, 0.75, 0.99];
 
-alias SortedDurationArray = SortedRange!(RangeT!(Array!(Duration)), "a < b");
+alias SortedDurationArray = SortedRange!(Array!(Duration).Range, "a < b");
 
 /* The quantil measure.
 Params:

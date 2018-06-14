@@ -135,7 +135,6 @@ struct BenchmarkResult
 {
     import std.container.array : Array;
     import randomizedtestbenchmark.benchmark : Benchmark;
-    import randomizedtestbenchmark.execution : BenchmarkOptions;
 
     BenchmarkOptions options;
     Array!Benchmark results;
