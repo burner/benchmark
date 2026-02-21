@@ -45,10 +45,10 @@ template isGen(T)
     static assert(!isGen!int);
     static assert(isGen!(Gen!(int, 0, 10)));
     static assert(isGen!(Gen!(float, 0, 10)));
-    static assert(isGen!(Gen!(string)));
-    static assert(isGen!(Gen!(string, 0, 10)));
-    static assert(isGen!(Gen!(string, 0, 10, false)));
-    static assert(isGen!(Gen!(string, 0, 10, true)));
+    static assert(isGen!(GenString!()));
+    static assert(isGen!(GenString!(0, 10)));
+    static assert(isGen!(GenString!(0, 10, false)));
+    static assert(isGen!(GenString!(0, 10, true)));
 }
 
 /** A $(D Gen) type that generates character values. */
@@ -258,25 +258,21 @@ Template parameters:
 - $(D high): maximum string length (default 30)
 - $(D unicode): if true, generate unicode strings; if false, ASCII only (default false)
 */
-struct Gen(T, size_t low = 0, size_t high = 30, bool unicode = false) if (isSomeString!T)
+struct GenString(size_t low = 0, size_t high = 30, bool unicode = false)
 {
-    alias Type = T;
-    T value;
+    alias Type = string;
+    string value;
 
     static if (unicode)
-    {
-        static immutable T charSet = genCharSet!T();
-    }
+        static immutable string charSet = genCharSet!string();
     else
-    {
-        static immutable T charSet = genCharSetASCII!T();
-    }
+        static immutable string charSet = genCharSetASCII!string();
     static immutable size_t numCharsInCharSet = count(charSet);
 
     void gen(ref Random gen)
     {
         static assert(low <= high);
-        auto app = appender!T();
+        auto app = appender!string();
         app.reserve(high);
         size_t numElems = uniform!("[]")(low, high, gen);
 
@@ -285,6 +281,8 @@ struct Gen(T, size_t low = 0, size_t high = 30, bool unicode = false) if (isSome
             size_t toSelect = uniform!("[)")(0, numCharsInCharSet, gen);
             static if (unicode)
             {
+                import std.range : drop;
+                import std.utf : byDchar;
                 app.put(charSet.byDchar().drop(toSelect).front);
             }
             else
@@ -299,21 +297,27 @@ struct Gen(T, size_t low = 0, size_t high = 30, bool unicode = false) if (isSome
     alias value this;
 }
 
+/// Factory function to create generators
+template gen(T)
+{
+    static if (is(T == string))
+        alias gen = GenString!();
+    else
+        static assert(false, "gen() not implemented for " ~ T.stringof);
+}
+
 @safe pure unittest
 {
     auto r = Random(1337);
-    foreach (T; AliasSeq!(string, wstring, dstring))
+    foreach (L; aliasSeqOf!(iota(0, 2)))
     {
-        foreach (L; aliasSeqOf!(iota(0, 2)))
+        foreach (H; aliasSeqOf!(iota(L, 2)))
         {
-            foreach (H; aliasSeqOf!(iota(L, 2)))
+            GenString!(L, H, false) a;
+            a.gen(r);
+            if (L)
             {
-                Gen!(T, L, H, false) a;
-                a.gen(r);
-                if (L)
-                {
-                    assert(!a.value.empty);
-                }
+                assert(!a.value.empty);
             }
         }
     }
@@ -418,7 +422,7 @@ template ParameterToGen(T)
     static if (isGen!T)
         alias ParameterToGen = T;
     else static if (isSomeString!T)
-        alias ParameterToGen = Gen!(T, 0, 32);
+        alias ParameterToGen = GenString!(0, 32);
     else static if (is(T == U[], U))
     {
         static if (is(U == bool))

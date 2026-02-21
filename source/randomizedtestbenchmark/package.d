@@ -6,6 +6,11 @@ public import randomizedtestbenchmark.statistics;
 public import randomizedtestbenchmark.benchmark;
 public import randomizedtestbenchmark.execution;
 public import randomizedtestbenchmark.valuegenerators;
+public import randomizedtestbenchmark.systeminfo;
+public import randomizedtestbenchmark.machine;
+public import randomizedtestbenchmark.database;
+public import randomizedtestbenchmark.reporter;
+public import randomizedtestbenchmark.normalization;
 
 /** $(D randomizedtestbenchmark) is a test data generation and benchmark
 package. The below example shows a simple example of how to test a function
@@ -133,7 +138,7 @@ a random string with a length between 10 and 20 characters.
 */
 unittest
 {
-    void forward(Gen!(string, 10, 20) randomString, char randomChar)
+    void forward(GenString!(10, 20) randomString, char randomChar)
     {
         import std.algorithm.searching : find;
         import std.array : empty, front;
@@ -187,7 +192,7 @@ unittest
 
         void gen(ref Random gen)
         {
-            Gen!(string) str;
+            GenString!() str;
             Gen!(char) c;
 
             str.gen(gen);

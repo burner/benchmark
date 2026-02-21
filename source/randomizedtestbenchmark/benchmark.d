@@ -139,3 +139,10 @@ struct BenchmarkResult
     BenchmarkOptions options;
     Array!Benchmark results;
 }
+
+struct BenchmarkWithMetrics
+{
+    BenchmarkResult result;
+    import randomizedtestbenchmark.systeminfo : BenchmarkSystemMetrics;
+    BenchmarkSystemMetrics systemMetrics;
+}
