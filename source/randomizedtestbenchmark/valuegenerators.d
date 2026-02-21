@@ -1,7 +1,15 @@
 module randomizedtestbenchmark.valuegenerators;
 
-import std.traits : isSomeChar, isFloatingPoint, isNumeric, isSomeString, isIntegral;
+import std.algorithm : count, map, joiner;
+import std.array : array, appender, empty;
+import std.conv : to;
+import std.meta : AliasSeq, aliasSeqOf, staticMap;
 import std.random : Random, uniform;
+import std.range : chain, drop, iota;
+import std.traits : Parameters, ParameterStorageClassTuple, ParameterStorageClass
+     , isImplicitlyConvertible, isArray, isSomeChar, isFloatingPoint, isNumeric
+     , isSomeString, isIntegral;
+import std.utf : byDchar;
 
 /* Return $(D true) if the passed $(D T) is a $(D Gen) struct.
 
@@ -15,10 +23,6 @@ custom $(D Gen) is required.
 */
 template isGen(T)
 {
-    import std.random : Random;
-    import std.traits : Parameters, ParameterStorageClassTuple,
-        ParameterStorageClass, isImplicitlyConvertible;
-
     static if (__traits(hasMember, T, "Type") && __traits(hasMember, T, "gen")
             && Parameters!(__traits(getMember, T, "gen")).length == 1 
 			&& is(Parameters!(__traits(getMember, T, "gen"))[0] == Random) 
@@ -149,8 +153,6 @@ struct GenArray(T, size_t N = 16384, T lowVal = 0, T highVal = T.max)
 struct GenArray(T, size_t N = 16384, size_t strLenLow = 0, size_t strLenHigh = 30, bool unicode = false) 
     if (isSomeString!T)
 {
-    import std.algorithm : count;
-
     alias Type = T[];
     static if (unicode)
         static immutable T charSet = genCharSet!T();
@@ -165,8 +167,6 @@ struct GenArray(T, size_t N = 16384, size_t strLenLow = 0, size_t strLenHigh = 3
     void gen(ref Random rnd)
     {
         static assert(strLenLow <= strLenHigh);
-        import std.array : appender;
-
         foreach (ref str; data)
         {
             auto app = appender!T();
@@ -178,8 +178,6 @@ struct GenArray(T, size_t N = 16384, size_t strLenLow = 0, size_t strLenHigh = 3
                 size_t toSelect = uniform!("[)")(0, numCharsInCharSet, rnd);
                 static if (unicode)
                 {
-                    import std.range : drop;
-                    import std.utf : byDchar;
                     app.put(charSet.byDchar().drop(toSelect).front);
                 }
                 else
@@ -239,22 +237,12 @@ unittest
 
 private pure @safe T genCharSet(T)()
 {
-    import std.range : iota, chain;
-    import std.algorithm : map, joiner;
-    import std.conv : to;
-    import std.array : array;
-
     return to!T(chain(iota(0x21, 0x7E).map!(a => to!T(cast(dchar) a)),
             iota(0xA1, 0x1EF).map!(a => to!T(cast(dchar) a))).joiner.array);
 }
 
 private pure @safe T genCharSetASCII(T)()
 {
-    import std.range : chain, iota;
-    import std.algorithm : map, joiner;
-    import std.conv : to;
-    import std.array : array;
-
     auto charSet = to!T(chain(iota(0x21, 0x7B)
             .map!(a => to!char(cast(dchar) a)).array)
         );
@@ -272,8 +260,6 @@ Template parameters:
 */
 struct Gen(T, size_t low = 0, size_t high = 30, bool unicode = false) if (isSomeString!T)
 {
-    import std.algorithm : count;
-
     alias Type = T;
     T value;
 
@@ -290,8 +276,6 @@ struct Gen(T, size_t low = 0, size_t high = 30, bool unicode = false) if (isSome
     void gen(ref Random gen)
     {
         static assert(low <= high);
-        import std.array : appender;
-
         auto app = appender!T();
         app.reserve(high);
         size_t numElems = uniform!("[]")(low, high, gen);
@@ -301,8 +285,6 @@ struct Gen(T, size_t low = 0, size_t high = 30, bool unicode = false) if (isSome
             size_t toSelect = uniform!("[)")(0, numCharsInCharSet, gen);
             static if (unicode)
             {
-                import std.range : drop;
-                import std.utf : byDchar;
                 app.put(charSet.byDchar().drop(toSelect).front);
             }
             else
@@ -319,12 +301,6 @@ struct Gen(T, size_t low = 0, size_t high = 30, bool unicode = false) if (isSome
 
 @safe pure unittest
 {
-    import std.meta : AliasSeq;
-
-    import std.range : iota;
-    import std.array : empty;
-    import std.meta : aliasSeqOf;
-
     auto r = Random(1337);
     foreach (T; AliasSeq!(string, wstring, dstring))
     {
@@ -352,8 +328,6 @@ struct RndValueGen(T...)
 {
     static if (T.length > 0)
     {
-        import std.meta : staticMap;
-
         /* $(D Values) is a collection of $(D Gen) types created through
     	$(D ParameterToGen) of passed $(T ...).
     	*/
@@ -441,8 +415,6 @@ already a $(D Gen) or no $(D Gen) for given $(D T) is available.
 */
 template ParameterToGen(T)
 {
-    import std.traits : isSomeChar, isIntegral, isFloatingPoint, isSomeString, isArray;
-
     static if (isGen!T)
         alias ParameterToGen = T;
     else static if (isSomeString!T)
@@ -489,8 +461,6 @@ template ParameterToGen(T)
 
 @safe pure unittest
 {
-    import std.meta : AliasSeq, staticMap;
-
     foreach (T; AliasSeq!(byte, ubyte, ushort, char, wchar, dchar, short, uint,
             int, ulong, long, float, double, real, string, wstring, dstring))
     {
@@ -501,8 +471,6 @@ template ParameterToGen(T)
 
 @safe pure unittest
 {
-    import std.meta : AliasSeq;
-
     foreach (T; AliasSeq!(int[], float[], double[], long[]))
     {
         alias GenArr = ParameterToGen!T;
@@ -542,8 +510,6 @@ template ParameterToGen(T)
 
 @safe pure unittest
 {
-    import std.meta : AliasSeq;
-
     foreach (T; AliasSeq!(string[], wstring[], dstring[]))
     {
         alias GenArr = ParameterToGen!T;
